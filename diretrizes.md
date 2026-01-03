@@ -43,3 +43,24 @@
 -   Criar espaço upload de avatar/image em usuários e pessoas;
 -   Testar as alterações feitas com build e ajustar caso seja necessário;
 -   Tem permissão para tais tarefas;
+
+### Etapa 6
+
+-   Na página /inscricoes/sucesso/ pode manter a exibição da confirmação de inscrição e dar opção bem nítida para acessar o checkout da stripe para que ele pague conforme sua vontade;
+-    Voltar ao inicio deverar direcionar para a tela de eventos novamente;
+-   Corrigir o upload da foto de perfil no modal de MEU PERFIL;
+-   Criar modal de edição de evento e dialog de confirmação de deleção de eventos (deleção lógica, ou seja, update em coluna removed = true/false);
+-   Em configurações, cria página de gerência de usuários para quando o logado for "admin" para manter os usuários do sistema. O formulário terá inclusão de usuários do sistema e ger6encia de permissões de ações;
+-   A página de inscrições está com erros nas rotas com código 401;
+-   Mova módulos/arquivos para a pasta /trash/ que não tiverem mais utilizadade conforme as entidades do schema.prisma;
+-   Renomear no sistema completo MEMBROS para PESSOAS;
+
+### Etapa 7
+
+-   Ajustar o dialog de logout. Centralize ele no template da tela, ao clicar em sair deve-se disabilitar o botão e exibir um loading e esperar 2 segundos até acessar a função de signout;
+-   Os dialogs de exclusão não estão centralizados no template de página geral;
+-   Gerar uma função com a função de toast() para que fique genérica e de simples uso e substituir todos os alert() de acordo com seus contextos;
+-   Corrigir a exibição e resultado de parcelas que está dando 404 na rota de GET;
+-   Corrigir a exibição e resultado de dados na página de faturas;
+-   Implemente em todos os submits um loading com botão disabled e icone de loading enquanto clicado conforme fiz no arquivo invoice-generator.tsx nas linhas 304 a 321;
+-   Alterar a paleta de cores do projeto, substituir o purple e o pink pr uma paleta moderna e discreta e mude;

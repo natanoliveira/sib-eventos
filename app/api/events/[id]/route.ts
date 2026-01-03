@@ -19,7 +19,7 @@ export async function GET(
         },
         memberships: {
           include: {
-            member: {
+            person: {
               select: {
                 id: true,
                 name: true,
@@ -30,7 +30,7 @@ export async function GET(
         },
         tickets: {
           include: {
-            user: {
+            person: {
               select: {
                 id: true,
                 name: true,
@@ -39,13 +39,26 @@ export async function GET(
             },
           },
         },
-        payments: {
+        invoices: {
           include: {
-            user: {
+            person: {
               select: {
                 id: true,
                 name: true,
                 email: true,
+              },
+            },
+            installments: {
+              include: {
+                payments: {
+                  select: {
+                    id: true,
+                    amount: true,
+                    method: true,
+                    status: true,
+                    paidAt: true,
+                  },
+                },
               },
             },
           },

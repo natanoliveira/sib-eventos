@@ -79,13 +79,13 @@ export function DashboardOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.title} className="border-pink-200">
+            <Card key={stat.title} className="border-blue-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">{stat.title}</CardTitle>
-                <Icon className="h-4 w-4 text-pink-600" />
+                <Icon className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl text-pink-900">{stat.value}</div>
+                <div className="text-2xl text-blue-900">{stat.value}</div>
                 <div className="flex items-center text-xs text-muted-foreground">
                   <TrendingUp className="mr-1 h-3 w-3 text-green-600" />
                   <span className="text-green-600">{stat.change}</span>
@@ -98,9 +98,9 @@ export function DashboardOverview() {
       </div>
       
       {/* Upcoming Events */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Próximos Eventos</CardTitle>
+          <CardTitle className="text-blue-900">Próximos Eventos</CardTitle>
           <CardDescription>
             Eventos programados e suas estatísticas de inscrição
           </CardDescription>
@@ -110,11 +110,11 @@ export function DashboardOverview() {
             const progressPercentage = (event.registrations / event.capacity) * 100;
             
             return (
-              <div key={event.id} className="p-4 rounded-lg border border-pink-100 bg-pink-50/30">
+              <div key={event.id} className="p-4 rounded-lg border border-blue-100 bg-blue-50/30">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <h4 className="text-pink-900">{event.title}</h4>
+                      <h4 className="text-blue-900">{event.title}</h4>
                       <Badge 
                         variant={event.status === "Inscrições Abertas" ? "default" : "secondary"}
                         className={event.status === "Inscrições Abertas" ? "bg-green-100 text-green-800" : ""}
@@ -138,7 +138,7 @@ export function DashboardOverview() {
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Inscrições</span>
-                    <span className="text-pink-900">{event.registrations} / {event.capacity}</span>
+                    <span className="text-blue-900">{event.registrations} / {event.capacity}</span>
                   </div>
                   <Progress 
                     value={progressPercentage} 

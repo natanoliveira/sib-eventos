@@ -116,7 +116,7 @@ export function EventRegistrations() {
         
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700">
+            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
               <Plus className="w-4 h-4 mr-2" />
               Nova Inscrição
             </Button>
@@ -173,7 +173,7 @@ export function EventRegistrations() {
               </Button>
               <Button 
                 onClick={handleAddRegistration}
-                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 disabled={!newRegistration.userId || !newRegistration.eventId}
               >
                 Inscrever Membro
@@ -184,7 +184,7 @@ export function EventRegistrations() {
       </div>
 
       {/* Filters */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -193,11 +193,11 @@ export function EventRegistrations() {
                 placeholder="Buscar por membro ou evento..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-pink-200"
+                className="pl-10 border-blue-200"
               />
             </div>
             <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-              <SelectTrigger className="w-full md:w-[250px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[250px] border-blue-200">
                 <SelectValue placeholder="Filtrar por evento" />
               </SelectTrigger>
               <SelectContent>
@@ -210,7 +210,7 @@ export function EventRegistrations() {
               </SelectContent>
             </Select>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full md:w-[200px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[200px] border-blue-200">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -225,9 +225,9 @@ export function EventRegistrations() {
       </Card>
 
       {/* Registrations Table */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Lista de Inscrições</CardTitle>
+          <CardTitle className="text-blue-900">Lista de Inscrições</CardTitle>
           <CardDescription>
             {filteredRegistrations.length} inscrições encontradas
           </CardDescription>
@@ -248,14 +248,14 @@ export function EventRegistrations() {
                 <TableRow key={reg.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10 border-2 border-pink-200">
+                      <Avatar className="h-10 w-10 border-2 border-blue-200">
                         <AvatarImage src={reg.user.image} alt={reg.user.name} />
-                        <AvatarFallback className="bg-gradient-to-br from-pink-200 to-purple-200 text-pink-800">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
                           {reg.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="text-pink-900">{reg.user.name}</div>
+                        <div className="text-blue-900">{reg.user.name}</div>
                         <div className="text-sm text-muted-foreground">{reg.user.email}</div>
                       </div>
                     </div>
@@ -263,9 +263,9 @@ export function EventRegistrations() {
                   
                   <TableCell>
                     <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-purple-600" />
+                      <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
                       <div>
-                        <div className="text-pink-900">{reg.event.title}</div>
+                        <div className="text-blue-900">{reg.event.title}</div>
                         <div className="text-sm text-muted-foreground">
                           {new Date(reg.event.date || reg.event.startDate).toLocaleDateString('pt-BR')}
                         </div>

@@ -10,15 +10,21 @@ export const POST = requireAuth(
   ) => {
     try {
       const body = await request.json();
-      const { stripePaymentIntentId, stripeChargeId } = body;
+      const { amount, method, stripePaymentIntentId, stripeChargeId, stripeCustomerId } = body;
 
       // Buscar parcela
-      const installment = await prisma.paymentInstallment.findUnique({
+      const installment = await prisma.installment.findUnique({
         where: { id: params.id },
         include: {
-          payment: {
+          invoice: {
             include: {
               tickets: true,
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
             },
           },
         },
@@ -38,51 +44,74 @@ export const POST = requireAuth(
         );
       }
 
-      // Atualizar parcela para paga
-      await prisma.paymentInstallment.update({
-        where: { id: params.id },
+      // Criar pagamento para esta parcela
+      const payment = await prisma.payment.create({
         data: {
+          paymentNumber: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          installmentId: installment.id,
+          amount: amount || installment.amount,
+          method: method || 'PIX',
           status: 'PAID',
           paidAt: new Date(),
           stripePaymentIntentId,
           stripeChargeId,
+          stripeCustomerId,
         },
       });
 
-      // Verificar se todas as parcelas foram pagas
-      const allInstallments = await prisma.paymentInstallment.findMany({
-        where: { paymentId: installment.paymentId },
+      // Atualizar parcela para paga
+      await prisma.installment.update({
+        where: { id: params.id },
+        data: {
+          status: 'PAID',
+        },
+      });
+
+      // Verificar se todas as parcelas da fatura foram pagas
+      const allInstallments = await prisma.installment.findMany({
+        where: { invoiceId: installment.invoiceId },
       });
 
       const allPaid = allInstallments.every((inst) => inst.status === 'PAID');
 
-      // Se todas pagas, atualizar pagamento principal
+      // Se todas pagas, atualizar fatura
       if (allPaid) {
-        await prisma.payment.update({
-          where: { id: installment.paymentId },
+        await prisma.invoice.update({
+          where: { id: installment.invoiceId },
           data: {
             status: 'PAID',
-            paidAt: new Date(),
           },
         });
 
-        // Ativar todos os tickets vinculados
+        // Ativar todos os tickets vinculados à fatura
         await prisma.ticket.updateMany({
-          where: { paymentId: installment.paymentId },
+          where: { invoiceId: installment.invoiceId },
           data: { status: 'ACTIVE' },
+        });
+      } else {
+        // Atualizar para parcialmente pago
+        await prisma.invoice.update({
+          where: { id: installment.invoiceId },
+          data: {
+            status: 'PARTIALLY_PAID',
+          },
         });
       }
 
       // Retornar dados atualizados
-      const result = await prisma.paymentInstallment.findUnique({
+      const result = await prisma.installment.findUnique({
         where: { id: params.id },
         include: {
-          payment: {
+          payments: true,
+          invoice: {
             include: {
               tickets: true,
-              paymentInstallments: {
+              installments: {
                 orderBy: {
                   installmentNumber: 'asc',
+                },
+                include: {
+                  payments: true,
                 },
               },
             },
@@ -93,6 +122,7 @@ export const POST = requireAuth(
       return NextResponse.json({
         message: 'Parcela paga com sucesso',
         installment: result,
+        payment,
         allPaid,
       });
     } catch (error) {

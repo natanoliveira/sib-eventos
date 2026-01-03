@@ -1,0 +1,482 @@
+"use client";
+
+import { useState } from 'react';
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import { Label } from "./ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Switch } from "./ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Search, UserPlus, Edit2, Trash2, Shield, ShieldCheck, Users } from "lucide-react";
+
+const mockUsers = [
+  {
+    id: 1,
+    name: "João Silva",
+    email: "joao@igreja.com",
+    role: "admin",
+    permissions: {
+      "events.create": true,
+      "events.edit": true,
+      "events.delete": true,
+      "members.view": true,
+      "members.create": true,
+      "members.edit": true,
+      "dashboard.view": true,
+      "tickets.view": true,
+      "tickets.create": true,
+      "payments.view": true
+    },
+    active: true
+  },
+  {
+    id: 2,
+    name: "Maria Santos",
+    email: "maria@igreja.com",
+    role: "leader",
+    permissions: {
+      "events.create": true,
+      "events.edit": true,
+      "members.view": true,
+      "members.create": true,
+      "dashboard.view": true,
+      "tickets.view": true
+    },
+    active: true
+  },
+  {
+    id: 3,
+    name: "Pedro Costa",
+    email: "pedro@igreja.com",
+    role: "member",
+    permissions: {
+      "members.view": true,
+      "dashboard.view": true
+    },
+    active: false
+  }
+];
+
+const availablePermissions = [
+  { key: "events.create", label: "Criar Eventos" },
+  { key: "events.edit", label: "Editar Eventos" },
+  { key: "events.delete", label: "Deletar Eventos" },
+  { key: "members.view", label: "Visualizar Membros" },
+  { key: "members.create", label: "Criar Membros" },
+  { key: "members.edit", label: "Editar Membros" },
+  { key: "dashboard.view", label: "Acessar Dashboard" },
+  { key: "tickets.view", label: "Visualizar Tickets" },
+  { key: "tickets.create", label: "Criar Tickets" },
+  { key: "tickets.cancel", label: "Cancelar Tickets" },
+  { key: "payments.view", label: "Visualizar Pagamentos" },
+];
+
+export function UsersManagement() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<typeof mockUsers[0] | null>(null);
+
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'member',
+    permissions: {} as Record<string, boolean>
+  });
+
+  const [editUser, setEditUser] = useState({
+    name: '',
+    email: '',
+    role: 'member',
+    permissions: {} as Record<string, boolean>
+  });
+
+  const filteredUsers = mockUsers.filter(user =>
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddUser = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log('Adding user:', newUser);
+      setIsAddDialogOpen(false);
+      setNewUser({
+        name: '',
+        email: '',
+        password: '',
+        role: 'member',
+        permissions: {}
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (user: typeof mockUsers[0]) => {
+    setSelectedUser(user);
+    setEditUser({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      permissions: { ...user.permissions } as Record<string, boolean>
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log('Updating user:', selectedUser?.id, editUser);
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = (user: typeof mockUsers[0]) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log('Deleting user:', selectedUser?.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-indigo-100 text-indigo-800"><ShieldCheck className="w-3 h-3 mr-1" />Admin</Badge>;
+      case 'leader':
+        return <Badge className="bg-blue-100 text-blue-800"><Shield className="w-3 h-3 mr-1" />Líder</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800"><Users className="w-3 h-3 mr-1" />Membro</Badge>;
+    }
+  };
+
+  const togglePermission = (permission: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditUser(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [permission]: !prev.permissions[permission]
+        }
+      }));
+    } else {
+      setNewUser(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [permission]: !prev.permissions[permission]
+        }
+      }));
+    }
+  };
+
+  const PermissionsGrid = ({ permissions, isEdit }: { permissions: Record<string, boolean>, isEdit: boolean }) => (
+    <div className="grid grid-cols-2 gap-3">
+      {availablePermissions.map((perm) => (
+        <div key={perm.key} className="flex items-center space-x-2">
+          <Switch
+            checked={!!permissions[perm.key]}
+            onCheckedChange={() => togglePermission(perm.key, isEdit)}
+          />
+          <Label className="text-sm cursor-pointer" onClick={() => togglePermission(perm.key, isEdit)}>
+            {perm.label}
+          </Label>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-blue-900">Gerenciamento de Usuários</h2>
+          <p className="text-muted-foreground">
+            Gerencie usuários do sistema e suas permissões
+          </p>
+        </div>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Novo Usuário
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Criar Novo Usuário</DialogTitle>
+              <DialogDescription>
+                Adicione um novo usuário ao sistema e configure suas permissões
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4 max-h-[500px] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Completo</Label>
+                  <Input
+                    id="name"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                    placeholder="João Silva"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    placeholder="joao@igreja.com"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Função</Label>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={(value) => setNewUser({...newUser, role: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="leader">Líder</SelectItem>
+                      <SelectItem value="member">Membro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Permissões</Label>
+                <Card>
+                  <CardContent className="pt-4">
+                    <PermissionsGrid permissions={newUser.permissions} isEdit={false} />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAddUser}
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              >
+                {isSubmitting ? 'Criando...' : 'Criar Usuário'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search */}
+      <Card className="border-blue-200">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar usuários..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 border-blue-200"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Users Grid */}
+      <div className="grid gap-4">
+        {filteredUsers.map((user) => (
+          <Card key={user.id} className="border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src="" alt={user.name} />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                      {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-semibold text-blue-900">{user.name}</h3>
+                      {getRoleBadge(user.role)}
+                      {!user.active && <Badge variant="outline" className="border-red-200 text-red-600">Inativo</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {Object.keys(user.permissions).length} permissões configuradas
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-200 hover:bg-blue-50"
+                    onClick={() => handleEditClick(user)}
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 hover:bg-red-50 text-red-600"
+                    onClick={() => handleDeleteClick(user)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredUsers.length === 0 && (
+        <Card className="border-blue-200">
+          <CardContent className="text-center py-8">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg text-muted-foreground mb-2">Nenhum usuário encontrado</h3>
+            <p className="text-sm text-muted-foreground">
+              Crie um novo usuário ou ajuste os filtros de busca
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize as informações e permissões do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[500px] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nome Completo</Label>
+                <Input
+                  id="edit-name"
+                  value={editUser.name}
+                  onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editUser.email}
+                  onChange={(e) => setEditUser({...editUser, email: e.target.value})}
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Função</Label>
+              <Select
+                value={editUser.role}
+                onValueChange={(value) => setEditUser({...editUser, role: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="leader">Líder</SelectItem>
+                  <SelectItem value="member">Membro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Permissões</Label>
+              <Card>
+                <CardContent className="pt-4">
+                  <PermissionsGrid permissions={editUser.permissions} isEdit={true} />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpdateUser}
+              disabled={isSubmitting}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+            >
+              {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a remover o usuário "{selectedUser?.name}". Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={isSubmitting}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isSubmitting ? 'Removendo...' : 'Sim, remover usuário'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

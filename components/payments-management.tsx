@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Progress } from "./ui/progress";
 import { Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText } from "lucide-react";
+import { toastSuccess } from '../lib/toast';
 
 const mockPayments = [
   {
@@ -136,7 +137,7 @@ export function PaymentsManagement() {
   const handleRefundPayment = (paymentId: string) => {
     // Mock refund functionality
     console.log('Processing refund for:', paymentId);
-    alert('Estorno processado com sucesso!');
+    toastSuccess('Estorno processado com sucesso!');
   };
 
   const totalRevenue = mockPayments
@@ -157,13 +158,13 @@ export function PaymentsManagement() {
         {paymentStats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.title} className="border-pink-200">
+            <Card key={stat.title} className="border-blue-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">{stat.title}</CardTitle>
                 <Icon className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl text-pink-900">{stat.value}</div>
+                <div className="text-2xl text-blue-900">{stat.value}</div>
                 <div className="flex items-center text-xs text-muted-foreground">
                   <TrendingUp className={`mr-1 h-3 w-3 ${stat.color}`} />
                   <span className={stat.color}>{stat.change}</span>
@@ -176,9 +177,9 @@ export function PaymentsManagement() {
       </div>
 
       {/* Revenue Progress */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Meta de Receita Mensal</CardTitle>
+          <CardTitle className="text-blue-900">Meta de Receita Mensal</CardTitle>
           <CardDescription>
             Progresso em relação à meta de R$ 20.000
           </CardDescription>
@@ -195,7 +196,7 @@ export function PaymentsManagement() {
       </Card>
 
       {/* Filters */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -204,11 +205,11 @@ export function PaymentsManagement() {
                 placeholder="Buscar por nome, email ou ID do pagamento..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-pink-200"
+                className="pl-10 border-blue-200"
               />
             </div>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full md:w-[150px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[150px] border-blue-200">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -220,7 +221,7 @@ export function PaymentsManagement() {
               </SelectContent>
             </Select>
             <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-              <SelectTrigger className="w-full md:w-[170px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[170px] border-blue-200">
                 <SelectValue placeholder="Método" />
               </SelectTrigger>
               <SelectContent>
@@ -235,9 +236,9 @@ export function PaymentsManagement() {
       </Card>
 
       {/* Payments Table */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Histórico de Pagamentos</CardTitle>
+          <CardTitle className="text-blue-900">Histórico de Pagamentos</CardTitle>
           <CardDescription>
             {filteredPayments.length} transações encontradas
           </CardDescription>
@@ -260,11 +261,11 @@ export function PaymentsManagement() {
                 <TableRow key={payment.id}>
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="text-pink-900 text-sm">{payment.id}</div>
+                      <div className="text-blue-900 text-sm">{payment.id}</div>
                       <div className="flex items-center space-x-2">
-                        <Avatar className="h-8 w-8 border border-pink-200">
+                        <Avatar className="h-8 w-8 border border-blue-200">
                           <AvatarImage src="" alt={payment.memberName} />
-                          <AvatarFallback className="bg-gradient-to-br from-pink-200 to-purple-200 text-pink-800 text-xs">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
                             {payment.memberName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
@@ -277,11 +278,11 @@ export function PaymentsManagement() {
                   </TableCell>
                   
                   <TableCell>
-                    <div className="text-sm text-pink-900">{payment.eventTitle}</div>
+                    <div className="text-sm text-blue-900">{payment.eventTitle}</div>
                   </TableCell>
                   
                   <TableCell>
-                    <div className="text-pink-900">
+                    <div className="text-blue-900">
                       R$ {payment.amount.toFixed(2)}
                     </div>
                   </TableCell>
@@ -310,10 +311,10 @@ export function PaymentsManagement() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 hover:bg-pink-50"
+                        className="h-8 w-8 hover:bg-blue-50"
                         onClick={() => handleViewDetails(payment)}
                       >
-                        <FileText className="h-4 w-4 text-pink-600" />
+                        <FileText className="h-4 w-4 text-blue-600" />
                       </Button>
                       {payment.status === 'Aprovado' && (
                         <Button 
@@ -349,7 +350,7 @@ export function PaymentsManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">ID do Pagamento</label>
-                  <div className="text-pink-900">{selectedPayment.id}</div>
+                  <div className="text-blue-900">{selectedPayment.id}</div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Status</label>
@@ -362,9 +363,9 @@ export function PaymentsManagement() {
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Participante</label>
                 <div className="flex items-center space-x-2">
-                  <Avatar className="h-10 w-10 border border-pink-200">
+                  <Avatar className="h-10 w-10 border border-blue-200">
                     <AvatarImage src="" alt={selectedPayment.memberName} />
-                    <AvatarFallback className="bg-gradient-to-br from-pink-200 to-purple-200 text-pink-800">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
                       {selectedPayment.memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
@@ -378,11 +379,11 @@ export function PaymentsManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Evento</label>
-                  <div className="text-pink-900">{selectedPayment.eventTitle}</div>
+                  <div className="text-blue-900">{selectedPayment.eventTitle}</div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Valor</label>
-                  <div className="text-pink-900">R$ {selectedPayment.amount.toFixed(2)}</div>
+                  <div className="text-blue-900">R$ {selectedPayment.amount.toFixed(2)}</div>
                 </div>
               </div>
               

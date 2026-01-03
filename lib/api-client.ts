@@ -267,7 +267,7 @@ class ApiClient {
 
   // Invoice endpoints
   async generateInvoice(data: {
-    userId: string
+    personId: string
     eventId: string
     amount: number | string
     method: string

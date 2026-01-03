@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth-utils';
 
-// GET /api/tickets - Listar tickets
-export const GET = requirePermission('tickets.view')(
+// GET /api/invoices - Listar faturas
+export const GET = requirePermission('dashboard.view')(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -13,14 +13,15 @@ export const GET = requirePermission('tickets.view')(
       const search = searchParams.get('search');
 
       const where: any = {};
+
       if (personId) where.personId = personId;
       if (eventId) where.eventId = eventId;
       if (status) where.status = status;
       if (search) {
-        where.ticketNumber = { contains: search, mode: 'insensitive' };
+        where.invoiceNumber = { contains: search, mode: 'insensitive' };
       }
 
-      const tickets = await prisma.ticket.findMany({
+      const invoices = await prisma.invoice.findMany({
         where,
         include: {
           person: {
@@ -37,23 +38,32 @@ export const GET = requirePermission('tickets.view')(
               title: true,
               startDate: true,
               location: true,
+              price: true,
             },
           },
-          invoice: {
-            select: {
-              id: true,
-              invoiceNumber: true,
-              totalAmount: true,
-              status: true,
-              installments: {
+          installments: {
+            orderBy: {
+              installmentNumber: 'asc',
+            },
+            include: {
+              payments: {
                 select: {
                   id: true,
-                  installmentNumber: true,
+                  paymentNumber: true,
                   amount: true,
+                  method: true,
                   status: true,
-                  dueDate: true,
+                  paidAt: true,
                 },
               },
+            },
+          },
+          tickets: {
+            select: {
+              id: true,
+              ticketNumber: true,
+              status: true,
+              qrCode: true,
             },
           },
         },
@@ -62,27 +72,13 @@ export const GET = requirePermission('tickets.view')(
         },
       });
 
-      return NextResponse.json(tickets);
+      return NextResponse.json(invoices);
     } catch (error) {
-      console.error('Error fetching tickets:', error);
+      console.error('Error fetching invoices:', error);
       return NextResponse.json(
-        { error: 'Erro ao buscar tickets' },
+        { error: 'Erro ao buscar faturas' },
         { status: 500 }
       );
     }
-  }
-);
-
-// POST /api/tickets - Criar ticket não é mais usado diretamente
-// Tickets agora são criados via /api/invoices/generate
-export const POST = requirePermission('tickets.create')(
-  async (_: NextRequest) => {
-    return NextResponse.json(
-      {
-        error: 'Use /api/invoices/generate para criar faturas com tickets',
-        message: 'Tickets agora são criados automaticamente ao gerar uma fatura'
-      },
-      { status: 400 }
-    );
   }
 );

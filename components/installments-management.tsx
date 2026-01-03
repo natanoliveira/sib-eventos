@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Search, DollarSign, Calendar, CheckCircle, AlertCircle, XCircle, CreditCard } from "lucide-react";
 import { apiClient } from '../lib/api-client';
+import { toastSuccess, toastError } from '../lib/toast';
 
 export function InstallmentsManagement() {
   const [installments, setInstallments] = useState<any[]>([]);
@@ -51,10 +52,10 @@ export function InstallmentsManagement() {
       
       // For demo, just mark as paid
       await handleMarkAsPaid(installment.id);
-      alert('Pagamento processado com sucesso via Stripe!');
+      toastSuccess('Pagamento processado com sucesso via Stripe!');
     } catch (error) {
       console.error('Error processing Stripe payment:', error);
-      alert('Erro ao processar pagamento com Stripe.');
+      toastError('Erro ao processar pagamento com Stripe.');
     }
   };
 
@@ -116,13 +117,13 @@ export function InstallmentsManagement() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-pink-200">
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-pink-600" />
+            <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-pink-900">R$ {totals.total.toFixed(2)}</div>
+            <div className="text-blue-900">R$ {totals.total.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Valor total de parcelas
             </p>
@@ -170,7 +171,7 @@ export function InstallmentsManagement() {
       </div>
 
       {/* Filters */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -179,11 +180,11 @@ export function InstallmentsManagement() {
                 placeholder="Buscar por membro ou número de pagamento..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-pink-200"
+                className="pl-10 border-blue-200"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[200px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[200px] border-blue-200">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -199,9 +200,9 @@ export function InstallmentsManagement() {
       </Card>
 
       {/* Installments Table */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Lista de Parcelas</CardTitle>
+          <CardTitle className="text-blue-900">Lista de Parcelas</CardTitle>
           <CardDescription>
             {filteredInstallments.length} parcelas encontradas
           </CardDescription>
@@ -223,23 +224,23 @@ export function InstallmentsManagement() {
             <TableBody>
               {filteredInstallments.map((inst) => (
                 <TableRow key={inst.id}>
-                  <TableCell className="text-pink-900">
+                  <TableCell className="text-blue-900">
                     {inst.payment?.paymentNumber || 'N/A'}
                   </TableCell>
                   
                   <TableCell>
                     <div>
-                      <div className="text-pink-900">{inst.payment?.user?.name || 'N/A'}</div>
+                      <div className="text-blue-900">{inst.payment?.user?.name || 'N/A'}</div>
                       <div className="text-sm text-muted-foreground">{inst.payment?.user?.email || ''}</div>
                     </div>
                   </TableCell>
                   
                   <TableCell>
-                    <div className="text-purple-900">{inst.payment?.event?.title || 'N/A'}</div>
+                    <div className="text-indigo-900">{inst.payment?.event?.title || 'N/A'}</div>
                   </TableCell>
                   
                   <TableCell>
-                    <Badge variant="outline" className="border-pink-200">
+                    <Badge variant="outline" className="border-blue-200">
                       {inst.installmentNumber}/{inst.payment?.installments || 1}
                     </Badge>
                   </TableCell>

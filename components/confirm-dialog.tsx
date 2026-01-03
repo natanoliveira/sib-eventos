@@ -28,7 +28,7 @@ export function ConfirmDialog({
         <AlertDialogHeader>
           <div className="flex items-center space-x-2">
             {destructive && <AlertTriangle className="h-5 w-5 text-red-600" />}
-            <AlertDialogTitle className={destructive ? "text-red-900" : "text-pink-900"}>
+            <AlertDialogTitle className={destructive ? "text-red-900" : "text-blue-900"}>
               {title}
             </AlertDialogTitle>
           </div>
@@ -48,7 +48,7 @@ export function ConfirmDialog({
             className={
               destructive 
                 ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
             }
           >
             {confirmText}

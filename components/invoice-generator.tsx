@@ -7,9 +7,10 @@ import { Input } from "./ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { FileText, CreditCard, DollarSign, Calendar, User } from "lucide-react";
+import { FileText, CreditCard, DollarSign, Calendar, User, Loader2 } from "lucide-react";
 import { apiClient } from '../lib/api-client';
 import { loadStripe } from '@stripe/stripe-js';
+import { toastSuccess, toastError } from '../lib/toast';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_KEY');
@@ -20,7 +21,7 @@ export function InvoiceGenerator() {
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
-    userId: '',
+    personId: '',
     eventId: '',
     amount: '',
     installments: '1',
@@ -46,7 +47,7 @@ export function InvoiceGenerator() {
   };
 
   const handleEventChange = (eventId: string) => {
-    setNewInvoice({...newInvoice, eventId});
+    setNewInvoice({ ...newInvoice, eventId });
     const event = events.find(e => e.id === eventId);
     if (event) {
       setNewInvoice(prev => ({
@@ -66,9 +67,9 @@ export function InvoiceGenerator() {
   const handleGenerateInvoice = async () => {
     try {
       setGenerating(true);
-      
+
       const invoiceData = {
-        userId: newInvoice.userId,
+        personId: newInvoice.personId,
         eventId: newInvoice.eventId,
         amount: parseFloat(newInvoice.amount),
         installments: parseInt(newInvoice.installments),
@@ -78,25 +79,26 @@ export function InvoiceGenerator() {
 
       // Generate invoice with installments
       const result = await apiClient.generateInvoice(invoiceData);
-      
-      console.log('Fatura gerada com sucesso:', result);
-      
+
       setIsGenerateDialogOpen(false);
       setNewInvoice({
-        userId: '',
+        personId: '',
         eventId: '',
         amount: '',
         installments: '1',
         method: 'CREDIT_CARD',
         firstDueDate: new Date().toISOString().split('T')[0]
       });
-      
+
       // Show success message
-      alert(`Fatura gerada com sucesso!\nNúmero: ${result.paymentNumber}\nTotal: R$ ${result.amount}\nParcelas: ${result.installments}x de R$ ${calculateInstallmentAmount()}`);
-      
+      toastSuccess('Fatura gerada com sucesso!', {
+        title: 'Sucesso!',
+        description: `Número: ${result.invoice.invoiceNumber} | Total: R$ ${result.invoice.totalAmount} | Parcelas: ${result.invoice.installments.length}x de R$ ${calculateInstallmentAmount()}`
+      });
+
     } catch (error) {
       console.error('Error generating invoice:', error);
-      alert('Erro ao gerar fatura. Tente novamente.');
+      toastError('Erro ao gerar fatura. Tente novamente.');
     } finally {
       setGenerating(false);
     }
@@ -105,7 +107,7 @@ export function InvoiceGenerator() {
   const handlePayWithStripe = async () => {
     try {
       setGenerating(true);
-      
+
       // Create Stripe payment intent
       const stripe = await stripePromise;
       if (!stripe) {
@@ -113,7 +115,7 @@ export function InvoiceGenerator() {
       }
 
       const { clientSecret } = await apiClient.createStripePaymentIntent({
-        userId: newInvoice.userId,
+        userId: newInvoice.personId,
         eventId: newInvoice.eventId,
         amount: parseFloat(newInvoice.amount),
         installments: parseInt(newInvoice.installments)
@@ -121,20 +123,20 @@ export function InvoiceGenerator() {
 
       // Redirect to Stripe checkout or show payment form
       console.log('Stripe Payment Intent criado:', clientSecret);
-      
+
       // For demo purposes, just generate the invoice
       await handleGenerateInvoice();
-      
+
     } catch (error) {
       console.error('Error with Stripe payment:', error);
-      alert('Erro ao processar pagamento. Gerando fatura offline...');
+      toastError('Erro ao processar pagamento. Gerando fatura offline...');
       await handleGenerateInvoice();
     } finally {
       setGenerating(false);
     }
   };
 
-  const selectedMember = members.find(m => m.id === newInvoice.userId);
+  const selectedMember = members.find(m => m.id === newInvoice.personId);
   const selectedEvent = events.find(e => e.id === newInvoice.eventId);
 
   return (
@@ -146,10 +148,10 @@ export function InvoiceGenerator() {
             Gere faturas e passaportes para membros em eventos
           </p>
         </div>
-        
+
         <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700">
+            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
               <FileText className="w-4 h-4 mr-2" />
               Gerar Fatura
             </Button>
@@ -164,13 +166,13 @@ export function InvoiceGenerator() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="member">Membro</Label>
-                  <Select 
-                    value={newInvoice.userId} 
-                    onValueChange={(value) => setNewInvoice({...newInvoice, userId: value})}
+                  <Label htmlFor="member">Pessoa</Label>
+                  <Select
+                    value={newInvoice.personId}
+                    onValueChange={(value) => setNewInvoice({ ...newInvoice, personId: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o membro" />
+                      <SelectValue placeholder="Selecione a pessoa" />
                     </SelectTrigger>
                     <SelectContent>
                       {members.map(member => (
@@ -181,11 +183,11 @@ export function InvoiceGenerator() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="event">Evento</Label>
-                  <Select 
-                    value={newInvoice.eventId} 
+                  <Select
+                    value={newInvoice.eventId}
                     onValueChange={handleEventChange}
                   >
                     <SelectTrigger>
@@ -203,25 +205,25 @@ export function InvoiceGenerator() {
               </div>
 
               {selectedMember && selectedEvent && (
-                <div className="p-4 bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg border border-pink-200">
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                   <div className="flex items-center space-x-4 mb-3">
-                    <User className="w-5 h-5 text-pink-600" />
+                    <User className="w-5 h-5 text-blue-600" />
                     <div>
                       <p className="text-sm text-muted-foreground">Membro Selecionado</p>
-                      <p className="text-pink-900">{selectedMember.name}</p>
+                      <p className="text-blue-900">{selectedMember.name}</p>
                       <p className="text-sm text-muted-foreground">{selectedMember.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <Calendar className="w-5 h-5 text-purple-600" />
+                    <Calendar className="w-5 h-5 text-indigo-600" />
                     <div>
                       <p className="text-sm text-muted-foreground">Evento Selecionado</p>
-                      <p className="text-purple-900">{selectedEvent.title}</p>
+                      <p className="text-indigo-900">{selectedEvent.title}</p>
                     </div>
                   </div>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="amount">Valor Total (R$)</Label>
@@ -230,16 +232,16 @@ export function InvoiceGenerator() {
                     type="number"
                     step="0.01"
                     value={newInvoice.amount}
-                    onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
+                    onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
                     placeholder="0.00"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="installments">Número de Parcelas</Label>
-                  <Select 
-                    value={newInvoice.installments} 
-                    onValueChange={(value) => setNewInvoice({...newInvoice, installments: value})}
+                  <Select
+                    value={newInvoice.installments}
+                    onValueChange={(value) => setNewInvoice({ ...newInvoice, installments: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -263,13 +265,13 @@ export function InvoiceGenerator() {
                   </p>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="method">Método de Pagamento</Label>
-                  <Select 
-                    value={newInvoice.method} 
-                    onValueChange={(value) => setNewInvoice({...newInvoice, method: value})}
+                  <Select
+                    value={newInvoice.method}
+                    onValueChange={(value) => setNewInvoice({ ...newInvoice, method: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -283,14 +285,14 @@ export function InvoiceGenerator() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="firstDueDate">Primeiro Vencimento</Label>
                   <Input
                     id="firstDueDate"
                     type="date"
                     value={newInvoice.firstDueDate}
-                    onChange={(e) => setNewInvoice({...newInvoice, firstDueDate: e.target.value})}
+                    onChange={(e) => setNewInvoice({ ...newInvoice, firstDueDate: e.target.value })}
                   />
                 </div>
               </div>
@@ -299,18 +301,29 @@ export function InvoiceGenerator() {
               <Button variant="outline" onClick={() => setIsGenerateDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button 
-                onClick={handleGenerateInvoice}
-                disabled={!newInvoice.userId || !newInvoice.eventId || !newInvoice.amount || generating}
-                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                {generating ? 'Gerando...' : 'Gerar Fatura'}
-              </Button>
+              {generating ? (
+                <Button
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                  disabled
+                >
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Gerando
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleGenerateInvoice}
+                  disabled={!newInvoice.personId || !newInvoice.eventId || !newInvoice.amount}
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Gerar Fatura
+                </Button>
+              )}
+
               {newInvoice.method === 'CREDIT_CARD' && (
-                <Button 
+                <Button
                   onClick={handlePayWithStripe}
-                  disabled={!newInvoice.userId || !newInvoice.eventId || !newInvoice.amount || generating}
+                  disabled={!newInvoice.personId || !newInvoice.eventId || !newInvoice.amount || generating}
                   className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
@@ -324,32 +337,32 @@ export function InvoiceGenerator() {
 
       {/* Info Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-pink-200">
+        <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Total de Faturas</CardTitle>
-            <FileText className="h-4 w-4 text-pink-600" />
+            <FileText className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-pink-900">0</div>
+            <div className="text-blue-900">0</div>
             <p className="text-xs text-muted-foreground">
               Faturas geradas no sistema
             </p>
           </CardContent>
         </Card>
-        
-        <Card className="border-purple-200">
+
+        <Card className="border-indigo-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Receita Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-600" />
+            <DollarSign className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-purple-900">R$ 0,00</div>
+            <div className="text-indigo-900">R$ 0,00</div>
             <p className="text-xs text-muted-foreground">
               Valor total de todas as faturas
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm">Parcelas Pendentes</CardTitle>
@@ -365,26 +378,26 @@ export function InvoiceGenerator() {
       </div>
 
       {/* Instructions */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Como Funciona</CardTitle>
+          <CardTitle className="text-blue-900">Como Funciona</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-start">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center mr-3">1</div>
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3">1</div>
               <p>Selecione o membro e o evento para gerar a fatura</p>
             </div>
             <div className="flex items-start">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center mr-3">2</div>
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3">2</div>
               <p>Configure o valor total e o número de parcelas desejado</p>
             </div>
             <div className="flex items-start">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center mr-3">3</div>
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3">3</div>
               <p>Escolha o método de pagamento e a data do primeiro vencimento</p>
             </div>
             <div className="flex items-start">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center mr-3">4</div>
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3">4</div>
               <p>Gere a fatura ou processe o pagamento direto via Stripe</p>
             </div>
           </div>

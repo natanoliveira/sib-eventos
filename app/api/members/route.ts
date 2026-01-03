@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth-utils';
-// GET /api/members - Listar membros
+
+// GET /api/members - Listar pessoas/membros
 export const GET = requirePermission('members.view')(
   async (request: NextRequest) => {
     try {
@@ -21,30 +22,30 @@ export const GET = requirePermission('members.view')(
         ];
       }
 
-      const members = await prisma.member.findMany({
+      const persons = await prisma.person.findMany({
         where,
         orderBy: {
           createdAt: 'desc',
         },
       });
 
-      return NextResponse.json(members);
+      return NextResponse.json(persons);
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error('Error fetching persons:', error);
       return NextResponse.json(
-        { error: 'Erro ao buscar membros' },
+        { error: 'Erro ao buscar pessoas' },
         { status: 500 }
       );
     }
   }
 );
 
-// POST /api/members - Criar membro
+// POST /api/members - Criar pessoa/membro
 export const POST = requirePermission('members.create')(
   async (request: NextRequest) => {
     try {
       const body = await request.json();
-      const { name, email, phone, address, category, status, notes } = body;
+      const { name, email, phone, address, category, status, notes, image } = body;
 
       if (!name || !email) {
         return NextResponse.json(
@@ -54,7 +55,7 @@ export const POST = requirePermission('members.create')(
       }
 
       // Verificar se email já existe
-      const existing = await prisma.member.findUnique({
+      const existing = await prisma.person.findUnique({
         where: { email },
       });
 
@@ -65,7 +66,7 @@ export const POST = requirePermission('members.create')(
         );
       }
 
-      const member = await prisma.member.create({
+      const person = await prisma.person.create({
         data: {
           name,
           email,
@@ -74,14 +75,15 @@ export const POST = requirePermission('members.create')(
           category,
           status: status || 'ACTIVE',
           notes,
+          image,
         },
       });
 
-      return NextResponse.json(member, { status: 201 });
+      return NextResponse.json(person, { status: 201 });
     } catch (error) {
-      console.error('Error creating member:', error);
+      console.error('Error creating person:', error);
       return NextResponse.json(
-        { error: 'Erro ao criar membro' },
+        { error: 'Erro ao criar pessoa' },
         { status: 500 }
       );
     }

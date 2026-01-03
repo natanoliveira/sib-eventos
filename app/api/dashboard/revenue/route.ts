@@ -24,44 +24,76 @@ export const GET = requirePermission('dashboard.view')(
         },
       });
 
-      // Receita por evento
-      const revenueByEvent = await prisma.payment.groupBy({
-        by: ['eventId'],
+      // Receita por evento (via Invoice)
+      const invoicesWithPayments = await prisma.invoice.findMany({
         where: {
-          status: 'PAID',
-          paidAt: {
-            gte: startDate,
+          installments: {
+            some: {
+              payments: {
+                some: {
+                  status: 'PAID',
+                  paidAt: {
+                    gte: startDate,
+                  },
+                },
+              },
+            },
           },
         },
-        _sum: {
-          amount: true,
-        },
-        _count: true,
-      });
-
-      // Buscar detalhes dos eventos
-      const eventIds = revenueByEvent.map((r) => r.eventId);
-      const events = await prisma.event.findMany({
-        where: {
-          id: {
-            in: eventIds,
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          installments: {
+            include: {
+              payments: {
+                where: {
+                  status: 'PAID',
+                  paidAt: {
+                    gte: startDate,
+                  },
+                },
+              },
+            },
           },
         },
-        select: {
-          id: true,
-          title: true,
-        },
       });
 
-      const revenueData = revenueByEvent.map((r) => {
-        const event = events.find((e) => e.id === r.eventId);
-        return {
-          eventId: r.eventId,
-          eventTitle: event?.title || 'Desconhecido',
-          revenue: Number(r._sum.amount || 0),
-          payments: r._count,
-        };
-      });
+      // Agrupar receita por evento
+      const revenueByEventMap = new Map<string, { eventId: string; eventTitle: string; revenue: number; payments: number }>();
+
+      for (const invoice of invoicesWithPayments) {
+        const eventId = invoice.eventId;
+        const eventTitle = invoice.event.title;
+
+        let eventRevenue = 0;
+        let eventPayments = 0;
+
+        for (const installment of invoice.installments) {
+          for (const payment of installment.payments) {
+            eventRevenue += Number(payment.amount);
+            eventPayments++;
+          }
+        }
+
+        if (revenueByEventMap.has(eventId)) {
+          const existing = revenueByEventMap.get(eventId)!;
+          existing.revenue += eventRevenue;
+          existing.payments += eventPayments;
+        } else {
+          revenueByEventMap.set(eventId, {
+            eventId,
+            eventTitle,
+            revenue: eventRevenue,
+            payments: eventPayments,
+          });
+        }
+      }
+
+      const revenueByEvent = Array.from(revenueByEventMap.values());
 
       // Receita por método de pagamento
       const revenueByMethod = await prisma.payment.groupBy({
@@ -81,12 +113,12 @@ export const GET = requirePermission('dashboard.view')(
       // Receita por dia (últimos 30 dias)
       const dailyRevenue = await prisma.$queryRaw`
         SELECT
-          DATE(paidAt) as date,
+          DATE("paidAt") as date,
           SUM(amount) as revenue,
           COUNT(*) as payments
-        FROM Payment
-        WHERE status = 'PAID' AND paidAt >= ${startDate}
-        GROUP BY DATE(paidAt)
+        FROM "Payment"
+        WHERE status = 'PAID' AND "paidAt" >= ${startDate}
+        GROUP BY DATE("paidAt")
         ORDER BY date ASC
       `;
 
@@ -111,7 +143,7 @@ export const GET = requirePermission('dashboard.view')(
 
       return NextResponse.json({
         totalRevenue: Number(totalRevenue._sum.amount || 0),
-        revenueByEvent: revenueData,
+        revenueByEvent,
         revenueByMethod: revenueByMethod.map((r) => ({
           method: r.method,
           revenue: Number(r._sum.amount || 0),

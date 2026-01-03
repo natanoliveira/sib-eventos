@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Separator } from "./ui/separator";
 import { Alert, AlertDescription } from "./ui/alert";
-import { User, Mail, Phone, MapPin, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { User, Mail, Phone, MapPin, Lock, CheckCircle, AlertCircle, Camera, Upload } from "lucide-react";
 import { apiClient } from '../lib/api-client';
 
 interface UserProfileProps {
@@ -21,12 +21,16 @@ export function UserProfile({ onClose }: UserProfileProps) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
+    image: '',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -48,11 +52,59 @@ export function UserProfile({ onClose }: UserProfileProps) {
         email: profile.email || '',
         phone: profile.phone || '',
         address: profile.address || '',
+        image: profile.image || '',
       });
+      setImagePreview(profile.image || '');
     } catch (error) {
       setMessage({ type: 'error', text: 'Erro ao carregar perfil' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setMessage({ type: 'error', text: 'A imagem deve ter no máximo 5MB' });
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        setMessage({ type: 'error', text: 'Por favor, selecione uma imagem válida' });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadImage = async () => {
+    if (!selectedImage) return;
+
+    setUpdating(true);
+    setMessage(null);
+
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        await apiClient.updateProfile({ ...profileData, image: base64Image });
+        setMessage({ type: 'success', text: 'Foto atualizada com sucesso!' });
+        await loadProfile();
+        setSelectedImage(null);
+      };
+      reader.readAsDataURL(selectedImage);
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Erro ao fazer upload da foto' });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -123,16 +175,48 @@ export function UserProfile({ onClose }: UserProfileProps) {
           >
             ✕
           </Button>
-          
+
           <div className="flex flex-col items-center space-y-4">
-            <Avatar className="h-24 w-24 border-4 border-pink-200">
-              <AvatarImage src={user?.image} alt={user?.name} />
-              <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white">
-                {user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative group">
+              <Avatar className="h-24 w-24 border-4 border-blue-200">
+                <AvatarImage src={imagePreview || user?.image} alt={user?.name} />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  {user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0 bg-blue-500 hover:bg-blue-600 text-white border-2 border-white"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+            </div>
+
+            {selectedImage && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleUploadImage}
+                disabled={updating}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {updating ? 'Enviando...' : 'Salvar Foto'}
+              </Button>
+            )}
+
             <div>
-              <CardTitle className="text-pink-900">{user?.name}</CardTitle>
+              <CardTitle className="text-blue-900">{user?.name}</CardTitle>
               <CardDescription>{user?.email}</CardDescription>
             </div>
           </div>
@@ -169,7 +253,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                         id="name"
                         value={profileData.name}
                         onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                        className="pl-10 border-pink-200"
+                        className="pl-10 border-blue-200"
                         required
                       />
                     </div>
@@ -184,7 +268,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                         type="email"
                         value={profileData.email}
                         onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                        className="pl-10 border-pink-200"
+                        className="pl-10 border-blue-200"
                         required
                         disabled // Email usually can't be changed
                       />
@@ -201,7 +285,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                         id="phone"
                         value={profileData.phone}
                         onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                        className="pl-10 border-pink-200"
+                        className="pl-10 border-blue-200"
                         placeholder="(11) 99999-9999"
                       />
                     </div>
@@ -215,7 +299,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                         id="address"
                         value={profileData.address}
                         onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                        className="pl-10 border-pink-200"
+                        className="pl-10 border-blue-200"
                         placeholder="Cidade, Estado"
                       />
                     </div>
@@ -231,7 +315,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                   <Button 
                     type="submit" 
                     disabled={updating}
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                   >
                     {updating ? 'Salvando...' : 'Salvar Alterações'}
                   </Button>
@@ -250,7 +334,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                       type="password"
                       value={passwordData.oldPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, oldPassword: e.target.value }))}
-                      className="pl-10 border-pink-200"
+                      className="pl-10 border-blue-200"
                       required
                     />
                   </div>
@@ -265,7 +349,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="pl-10 border-pink-200"
+                      className="pl-10 border-blue-200"
                       required
                       minLength={6}
                     />
@@ -281,7 +365,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="pl-10 border-pink-200"
+                      className="pl-10 border-blue-200"
                       required
                       minLength={6}
                     />
@@ -297,7 +381,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                   <Button 
                     type="submit" 
                     disabled={updating}
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                   >
                     {updating ? 'Alterando...' : 'Alterar Senha'}
                   </Button>

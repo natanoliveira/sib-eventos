@@ -13,6 +13,7 @@ import { InstallmentsManagement } from '@/components/installments-management';
 import { TicketsManagement } from '@/components/tickets-management';
 import { PaymentsManagement } from '@/components/payments-management';
 import { UserProfile } from '@/components/user-profile';
+import { UsersManagement } from '@/components/users-management';
 import { Loader2 } from 'lucide-react';
 
 type TabId =
@@ -77,8 +78,9 @@ export default function Dashboard() {
         return <PaymentsManagement />;
       case 'profile':
         return <UserProfile onClose={() => setActiveTab('dashboard')} />;
-      case 'reports':
       case 'settings':
+        return <UsersManagement />;
+      case 'reports':
       case 'dashboard':
       default:
         return <DashboardOverview />;
@@ -101,7 +103,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-pink-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100">
       <DashboardHeader
         onMenuToggle={() => setSidebarOpen((prev) => !prev)}
         onLogout={handleLogout}

@@ -30,27 +30,27 @@ export function DashboardHeader({ onMenuToggle, onLogout, onProfileClick, userNa
 
   return (
     <>
-      <header className="border-b border-pink-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-blue-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex h-16 items-center px-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuToggle}
-          className="md:hidden mr-2 hover:bg-pink-50"
+          className="md:hidden mr-2 hover:bg-blue-50"
         >
           <Menu className="h-5 w-5" />
         </Button>
         
         <div className="flex items-center space-x-2 mr-auto">
-          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
             <div className="w-5 h-5 bg-white rounded-full"></div>
           </div>
-          <h1 className="hidden md:block text-pink-900">EventoIgreja</h1>
+          <h1 className="hidden md:block text-blue-900">EventoIgreja</h1>
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" className="relative hover:bg-pink-50">
-            <Bell className="h-5 w-5 text-pink-700" />
+          <Button variant="ghost" size="icon" className="relative hover:bg-blue-50">
+            <Bell className="h-5 w-5 text-blue-700" />
             <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center p-0">
               2
             </Badge>
@@ -58,10 +58,10 @@ export function DashboardHeader({ onMenuToggle, onLogout, onProfileClick, userNa
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-pink-50">
-                <Avatar className="h-10 w-10 border-2 border-pink-200">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-blue-50">
+                <Avatar className="h-10 w-10 border-2 border-blue-200">
                   <AvatarImage src="" alt={userName} />
-                  <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                     {userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
@@ -79,12 +79,12 @@ export function DashboardHeader({ onMenuToggle, onLogout, onProfileClick, userNa
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={onProfileClick}
-                className="hover:bg-pink-50"
+                className="hover:bg-blue-50"
               >
                 <User className="mr-2 h-4 w-4" />
                 Meu Perfil
               </DropdownMenuItem>
-              <DropdownMenuItem className="hover:bg-pink-50">
+              <DropdownMenuItem className="hover:bg-blue-50">
                 <Settings className="mr-2 h-4 w-4" />
                 Configurações
               </DropdownMenuItem>

@@ -104,8 +104,8 @@ function SucessoContent() {
               )}
 
               {eventLocation && (
-                <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <div className="flex items-start gap-3 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                  <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Local</p>
                     <p className="font-medium text-gray-900 dark:text-white">
@@ -178,6 +178,43 @@ function SucessoContent() {
           </CardContent>
         </Card>
 
+        {/* Payment Section */}
+        {eventPrice && parseFloat(eventPrice) > 0 && (
+          <Card className="mb-6 border-2 border-blue-200 dark:border-blue-800 shadow-xl animate-in slide-in-from-bottom duration-700 delay-200">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+              <CardTitle className="text-2xl text-gray-900 dark:text-white flex items-center gap-2">
+                <DollarSign className="h-6 w-6" />
+                Realizar Pagamento
+              </CardTitle>
+              <CardDescription className="text-base">
+                Complete o pagamento para confirmar sua participação
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Valor Total: {formatPrice(eventPrice)}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Pague com segurança através do Stripe
+                  </p>
+                </div>
+                <Button
+                  asChild
+                  size="lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
+                >
+                  <Link href="#">
+                    <DollarSign className="mr-2 h-5 w-5" />
+                    Ir para Checkout Stripe
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 animate-in slide-in-from-bottom duration-700 delay-300">
           <Button
@@ -194,7 +231,7 @@ function SucessoContent() {
             asChild
             className="flex-1 bg-green-600 hover:bg-green-700"
           >
-            <Link href="/">
+            <Link href="/inscricoes">
               <Home className="mr-2 h-4 w-4" />
               Voltar ao Início
             </Link>

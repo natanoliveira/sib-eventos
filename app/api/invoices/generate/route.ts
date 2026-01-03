@@ -1,35 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/auth-utils';
 
 // POST /api/invoices/generate - Gerar fatura/passaporte com tickets
 export const POST = requireAuth(
-  async (request: NextRequest) => {
+  async (request: NextRequest, context: any) => {
+
     try {
       const body = await request.json();
       const {
-        userId,
+        personId,
         eventId,
         amount,
-        method,
         installments = 1,
         ticketQuantity = 1,
         ticketType = 'STANDARD',
-        memberId,
       } = body;
 
-      if (!userId || !eventId || !amount || !method) {
+      if (!personId || !eventId || !amount) {
         return NextResponse.json(
           { error: 'Dados incompletos' },
           { status: 400 }
         );
       }
 
-      // Verificar se usuário e evento existem
-      const [event] = await Promise.all([
+      // Verificar se pessoa e evento existem
+      const [person, event] = await Promise.all([
+        prisma.person.findUnique({ where: { id: personId } }),
         prisma.event.findUnique({ where: { id: eventId } }),
       ]);
+
+      if (!person) {
+        return NextResponse.json(
+          { error: 'Pessoa não encontrada' },
+          { status: 404 }
+        );
+      }
 
       if (!event) {
         return NextResponse.json(
@@ -40,48 +46,46 @@ export const POST = requireAuth(
 
       // Iniciar transação
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Criar pagamento
-        const paymentCount = await tx.payment.count();
-        const paymentNumber = `PAY-${new Date().getFullYear()}-${String(
-          paymentCount + 1
+        // 1. Criar Fatura (Invoice)
+        const invoiceCount = await tx.invoice.count();
+        const invoiceNumber = `INV-${new Date().getFullYear()}-${String(
+          invoiceCount + 1
         ).padStart(4, '0')}`;
 
-        const payment = await tx.payment.create({
+        const invoice = await tx.invoice.create({
           data: {
-            paymentNumber,
-            userId,
+            invoiceNumber,
+            personId,
             eventId,
-            amount: parseFloat(amount),
-            method,
-            installments: parseInt(installments),
+            totalAmount: parseFloat(amount),
             status: 'PENDING',
+            createdByUserId: context.user.id,
           },
         });
 
-        // 2. Criar parcelas se houver
-        if (parseInt(installments) > 1) {
-          const installmentAmount = parseFloat(amount) / parseInt(installments);
-          const installmentsData: Prisma.PaymentInstallmentCreateManyInput[] = [];
+        // 2. Criar Parcelas (Installments)
+        const installmentsCount = parseInt(installments);
+        const installmentAmount = parseFloat(amount) / installmentsCount;
+        const createdInstallments: any[] = [];
 
-          for (let i = 1; i <= parseInt(installments); i++) {
-            const dueDate = new Date();
-            dueDate.setMonth(dueDate.getMonth() + i);
+        for (let i = 1; i <= installmentsCount; i++) {
+          const dueDate = new Date();
+          dueDate.setMonth(dueDate.getMonth() + i - 1);
 
-            installmentsData.push({
-              paymentId: payment.id,
+          const installment = await tx.installment.create({
+            data: {
+              invoiceId: invoice.id,
               installmentNumber: i,
               amount: installmentAmount,
               dueDate,
               status: 'PENDING',
-            });
-          }
-
-          await tx.paymentInstallment.createMany({
-            data: installmentsData,
+            },
           });
+
+          createdInstallments.push(installment);
         }
 
-        // 3. Criar tickets/passaportes vinculados ao pagamento
+        // 3. Criar Tickets/Passaportes vinculados à fatura
         const tickets = [];
         const ticketCount = await tx.ticket.count();
         const pricePerTicket = parseFloat(amount) / parseInt(ticketQuantity);
@@ -90,20 +94,20 @@ export const POST = requireAuth(
           const ticketNumber = `TKT-${event.title
             .substring(0, 4)
             .toUpperCase()}-${new Date().getFullYear()}-${String(
-            ticketCount + i
-          ).padStart(4, '0')}`;
+              ticketCount + i
+            ).padStart(4, '0')}`;
           const qrCode = `QR-${ticketNumber}-${Date.now()}-${i}`;
 
           const ticket = await tx.ticket.create({
             data: {
               ticketNumber,
-              userId,
+              personId,
               eventId,
+              invoiceId: invoice.id,
               ticketType,
               price: pricePerTicket,
               qrCode,
               status: 'ACTIVE',
-              paymentId: payment.id,
             },
           });
 
@@ -111,35 +115,32 @@ export const POST = requireAuth(
         }
 
         // 4. Criar ou atualizar inscrição no evento
-        if (memberId) {
-          await tx.eventMembership.upsert({
-            where: {
-              memberId_eventId: {
-                memberId,
-                eventId,
-              },
-            },
-            create: {
-              memberId,
+        await tx.eventMembership.upsert({
+          where: {
+            personId_eventId: {
+              personId,
               eventId,
-              status: 'CONFIRMED',
-              createdByUserId: userId,
             },
-            update: {
-              status: 'CONFIRMED',
-              createdByUserId: userId,
-            },
-          });
-        }
+          },
+          create: {
+            personId,
+            eventId,
+            status: 'CONFIRMED',
+            createdByUserId: context.user.id,
+          },
+          update: {
+            status: 'CONFIRMED',
+          },
+        });
 
-        return { payment, tickets };
+        return { invoice, installments: createdInstallments, tickets };
       });
 
       // Buscar dados completos para retornar
-      const invoice = await prisma.payment.findUnique({
-        where: { id: result.payment.id },
+      const invoiceData = await prisma.invoice.findUnique({
+        where: { id: result.invoice.id },
         include: {
-          user: {
+          person: {
             select: {
               id: true,
               name: true,
@@ -158,9 +159,12 @@ export const POST = requireAuth(
             },
           },
           tickets: true,
-          paymentInstallments: {
+          installments: {
             orderBy: {
               installmentNumber: 'asc',
+            },
+            include: {
+              payments: true,
             },
           },
         },
@@ -169,7 +173,7 @@ export const POST = requireAuth(
       return NextResponse.json(
         {
           message: 'Fatura/Passaporte gerado com sucesso',
-          invoice,
+          invoice: invoiceData,
         },
         { status: 201 }
       );

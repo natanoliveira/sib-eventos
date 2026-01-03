@@ -144,7 +144,7 @@ export function MembersManagement() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'Líder': return 'bg-purple-100 text-purple-800';
+      case 'Líder': return 'bg-indigo-100 text-indigo-800';
       case 'Adulto': return 'bg-blue-100 text-blue-800';
       case 'Jovem': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -171,7 +171,7 @@ export function MembersManagement() {
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700">
+            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
               <Plus className="w-4 h-4 mr-2" />
               Novo Membro
             </Button>
@@ -268,7 +268,7 @@ export function MembersManagement() {
                 <Button
                   onClick={handleAddMember}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 >
                   Cadastrar Membro
                 </Button>
@@ -279,7 +279,7 @@ export function MembersManagement() {
       </div>
 
       {/* Filters */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -288,11 +288,11 @@ export function MembersManagement() {
                 placeholder="Buscar por nome ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-pink-200"
+                className="pl-10 border-blue-200"
               />
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-[200px] border-pink-200">
+              <SelectTrigger className="w-full md:w-[200px] border-blue-200">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -307,9 +307,9 @@ export function MembersManagement() {
       </Card>
 
       {/* Members Table */}
-      <Card className="border-pink-200">
+      <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-pink-900">Lista de Membros</CardTitle>
+          <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
           <CardDescription>
             {filteredMembers.length} membros encontrados
           </CardDescription>
@@ -331,14 +331,14 @@ export function MembersManagement() {
                 <TableRow key={member.id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10 border-2 border-pink-200">
+                      <Avatar className="h-10 w-10 border-2 border-blue-200">
                         <AvatarImage src="" alt={member.name} />
-                        <AvatarFallback className="bg-gradient-to-br from-pink-200 to-purple-200 text-pink-800">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
                           {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="text-pink-900">{member.name}</div>
+                        <div className="text-blue-900">{member.name}</div>
                         <div className="text-sm text-muted-foreground flex items-center">
                           <MapPin className="w-3 h-3 mr-1" />
                           {member.address}
@@ -372,7 +372,7 @@ export function MembersManagement() {
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-pink-900">
+                  <TableCell className="text-blue-900">
                     {member.events} eventos
                   </TableCell>
 
@@ -381,10 +381,10 @@ export function MembersManagement() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 hover:bg-pink-50"
+                        className="h-8 w-8 hover:bg-blue-50"
                         onClick={() => handleEditMember(member)}
                       >
-                        <Edit2 className="h-4 w-4 text-pink-600" />
+                        <Edit2 className="h-4 w-4 text-blue-600" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -497,7 +497,7 @@ export function MembersManagement() {
               <Button
                 onClick={handleUpdateMember}
                 disabled={isUpdating}
-                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
               >
                 Salvar Alterações
               </Button>

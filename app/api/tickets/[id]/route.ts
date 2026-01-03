@@ -9,7 +9,7 @@ export const GET = requirePermission('tickets.view')(
       const ticket = await prisma.ticket.findUnique({
         where: { id: params.id },
         include: {
-          user: {
+          person: {
             select: {
               id: true,
               name: true,
@@ -30,11 +30,14 @@ export const GET = requirePermission('tickets.view')(
               category: true,
             },
           },
-          payment: {
+          invoice: {
             include: {
-              paymentInstallments: {
+              installments: {
                 orderBy: {
                   installmentNumber: 'asc',
+                },
+                include: {
+                  payments: true,
                 },
               },
             },
@@ -75,7 +78,7 @@ export const PUT = requirePermission('tickets.create')(
         where: { id: params.id },
         data: updateData,
         include: {
-          user: {
+          person: {
             select: {
               id: true,
               name: true,
@@ -91,7 +94,15 @@ export const PUT = requirePermission('tickets.create')(
               location: true,
             },
           },
-          payment: true,
+          invoice: {
+            include: {
+              installments: {
+                include: {
+                  payments: true,
+                },
+              },
+            },
+          },
         },
       });
 
