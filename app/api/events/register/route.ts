@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// POST /api/events/register - Inscrever membro em evento (público)
+// POST /api/events/register - Inscrever pessoa/membro em evento (público)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { memberId, eventId } = body;
+    const { personId, eventId } = body;
 
-    if (!memberId || !eventId) {
+    if (!personId || !eventId) {
       return NextResponse.json(
-        { error: 'memberId e eventId são obrigatórios' },
+        { error: 'personId e eventId são obrigatórios' },
         { status: 400 }
       );
     }
 
-    // Verificar se membro e evento existem
-    const [member, event] = await Promise.all([
-      prisma.member.findUnique({ where: { id: memberId } }),
+    // Verificar se pessoa e evento existem
+    const [person, event] = await Promise.all([
+      prisma.person.findUnique({ where: { id: personId } }),
       prisma.event.findUnique({ where: { id: eventId } }),
     ]);
 
-    if (!member) {
+    if (!person) {
       return NextResponse.json(
-        { error: 'Membro não encontrado' },
+        { error: 'Pessoa não encontrada' },
         { status: 404 }
       );
     }
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const existingRegistration = await prisma.eventMembership.findUnique({
       where: {
         personId_eventId: {
-          personId: memberId,
+          personId,
           eventId,
         },
       },
@@ -62,13 +62,13 @@ export async function POST(request: NextRequest) {
     // Criar inscrição
     const registration = await prisma.eventMembership.create({
       data: {
-        memberId,
+        personId,
         eventId,
         status: 'PENDING', // Pendente até pagamento
         createdByUserId: null, // público
       },
       include: {
-        member: {
+        person: {
           select: {
             id: true,
             name: true,

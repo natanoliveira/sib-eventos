@@ -38,7 +38,7 @@ export const GET = async (request: NextRequest) => {
           select: {
             memberships: true,
             tickets: true,
-            payments: true,
+            invoices: true,
           },
         },
       },

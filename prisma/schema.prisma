@@ -55,6 +55,7 @@ model User {
   sessions        Session[]
   memberships     EventMembership[] @relation("MembershipCreator")
   paymentsCreated Payment[]         @relation("PaymentCreator")
+  invoicesCreated Invoice[]         @relation("InvoiceCreator")
   createdEvents   Event[]           @relation("EventCreator")
   userPermissions UserPermission[]
 
@@ -62,6 +63,7 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+// Membros da igreja (com ou sem autenticação)
 model Person {
   id       String     @id @default(cuid())
   name     String
@@ -75,6 +77,8 @@ model Person {
   image    String?
 
   memberships EventMembership[]
+  tickets     Ticket[]
+  invoices    Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,7 +111,7 @@ model Event {
 
   memberships EventMembership[]
   tickets     Ticket[]
-  payments    Payment[]
+  invoices    Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,31 +138,65 @@ model Ticket {
   ticketNumber String       @unique
   personId     String
   eventId      String
+  invoiceId    String? // Relacionado à fatura
   ticketType   String       @default("STANDARD")
   price        Decimal      @db.Decimal(10, 2)
   status       TicketStatus @default(ACTIVE)
   qrCode       String?      @unique
 
-  // Stripe integration
-  stripePaymentIntentId String?
-  stripeCustomerId      String?
-
-  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  payment   Payment? @relation(fields: [paymentId], references: [id])
-  paymentId String?
+  person  Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   issuedAt  DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+// Fatura gerada para inscrição em evento
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  personId        String
+  eventId         String
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  status          InvoiceStatus @default(PENDING)
+  createdByUserId String?
+
+  person        Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdByUser User?  @relation("InvoiceCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  installments Installment[]
+  tickets      Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Parcela da fatura
+model Installment {
+  id                String            @id @default(cuid())
+  invoiceId         String
+  installmentNumber Int
+  amount            Decimal           @db.Decimal(10, 2)
+  dueDate           DateTime
+  status            InstallmentStatus @default(PENDING)
+
+  invoice  Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([invoiceId, installmentNumber])
+}
+
+// Pagamento realizado para uma parcela (pode haver múltiplas tentativas)
 model Payment {
   id            String        @id @default(cuid())
   paymentNumber String        @unique
-  personId      String
-  createdByUserId String?
-  eventId       String
+  installmentId String
   amount        Decimal       @db.Decimal(10, 2)
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
@@ -169,41 +207,14 @@ model Payment {
   stripeCustomerId      String?
   stripeChargeId        String?
 
-  // Installment info
-  installments Int @default(1)
+  paidAt          DateTime?
+  createdByUserId String?
 
-  dueDate DateTime?
-  paidAt  DateTime?
-
-  person              Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
-  createdByUser       User?                @relation("PaymentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  event               Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tickets             Ticket[]
-  paymentInstallments PaymentInstallment[]
+  installment   Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  createdByUser User?       @relation("PaymentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model PaymentInstallment {
-  id                String            @id @default(cuid())
-  paymentId         String
-  installmentNumber Int
-  amount            Decimal           @db.Decimal(10, 2)
-  dueDate           DateTime
-  status            InstallmentStatus @default(PENDING)
-  paidAt            DateTime?
-
-  // Stripe integration for individual installments
-  stripePaymentIntentId String? @unique
-  stripeChargeId        String?
-
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([paymentId, installmentNumber])
 }
 
 // Permission System
@@ -290,6 +301,14 @@ enum PaymentStatus {
 
 enum InstallmentStatus {
   PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIALLY_PAID
   PAID
   OVERDUE
   CANCELLED

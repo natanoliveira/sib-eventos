@@ -29,3 +29,17 @@
 ### Etapa 4
 
 -   Crie uma página de inscrições para o evento que estiver aberto fora do dashboard com consulta de telefone, email ou nome (autocomplete) do membro. A página listará eventos abertos e o membro fora da área administrativa escolherá qualquer evento que queira se inscrever. Na listagem precisa ser exibida os dados do evento como descrição, valor, prazo e situação;
+
+### Etapa 5
+
+-   Validar modelagem de dados, sendo:  
+    -Eventos N:N Pessoas (haverá uma entidade relacional para ligar membros e eventos participantes)  
+    -Parcelas 1:N Pagamentos  
+    -Faturas 1:N Parcelas
+-   Redire todas as reduundâncias que tiver no modelo schema.
+-   Em toda listagem de dados criar um loading antes esperando a promessa da rota (pessoas, inscrições, eventos, pagamentos, faturas, parcelas);
+-   Mudar o hover dos botões pois a cor não está sendo executada no hover;
+-   Criar modal de edição de evento e dialog de confirmação de deleção de eventos (deleção lógica, ou seja, update em coluna removed = true/false);
+-   Criar espaço upload de avatar/image em usuários e pessoas;
+-   Testar as alterações feitas com build e ajustar caso seja necessário;
+-   Tem permissão para tais tarefas;

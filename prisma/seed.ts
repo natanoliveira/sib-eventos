@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, EventStatus, RegistrationStatus, TicketStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, EventStatus, RegistrationStatus, TicketStatus, PaymentMethod, PaymentStatus, InstallmentStatus, InvoiceStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -8,8 +8,9 @@ async function main() {
 
   // Limpeza do banco (remover dados existentes)
   console.log('🧹 Limpando dados existentes...');
-  await prisma.paymentInstallment.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.installment.deleteMany();
+  await prisma.invoice.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.eventMembership.deleteMany();
   await prisma.event.deleteMany();
@@ -17,7 +18,7 @@ async function main() {
   await prisma.permission.deleteMany();
   await prisma.account.deleteMany();
   await prisma.session.deleteMany();
-  await prisma.member.deleteMany();
+  await prisma.person.deleteMany();
   await prisma.user.deleteMany();
 
   // 1. CRIAÇÃO DE PERMISSÕES
@@ -42,7 +43,7 @@ async function main() {
 
   console.log(`✅ ${permissions.length} permissões criadas!`);
 
-  // 2. CRIAÇÃO DE USUÁRIOS
+  // 2. CRIAÇÃO DE USUÁRIOS (Administradores e Líderes com autenticação)
   console.log('👥 Criando usuários...');
 
   const hashedPassword = await hash('123456', 12);
@@ -65,20 +66,6 @@ async function main() {
   // Líderes
   const leader1 = await prisma.user.create({
     data: {
-      name: 'Maria Santos',
-      email: 'maria@igreja.com',
-      password: hashedPassword,
-      role: UserRole.LEADER,
-      phone: '(11) 98888-8888',
-      address: 'Av. Paulista, 456 - São Paulo, SP',
-      category: 'Líder de Louvor',
-      status: UserStatus.ACTIVE,
-      joinDate: new Date('2021-03-15'),
-    },
-  });
-
-  const leader2 = await prisma.user.create({
-    data: {
       name: 'Carlos Oliveira',
       email: 'carlos@igreja.com',
       password: hashedPassword,
@@ -91,10 +78,22 @@ async function main() {
     },
   });
 
-  // Membros
-  // Membros (entidade separada)
-  const members = await Promise.all([
-    prisma.member.create({
+  // 3. CRIAÇÃO DE PESSOAS (Membros da igreja)
+  console.log('👤 Criando pessoas/membros...');
+
+  const persons = await Promise.all([
+    prisma.person.create({
+      data: {
+        name: 'Maria Santos',
+        email: 'maria@igreja.com',
+        phone: '(11) 98888-8888',
+        address: 'Av. Paulista, 456 - São Paulo, SP',
+        category: 'Membro Ativo',
+        status: UserStatus.ACTIVE,
+        joinDate: new Date('2021-03-15'),
+      },
+    }),
+    prisma.person.create({
       data: {
         name: 'Ana Costa',
         email: 'ana@igreja.com',
@@ -105,7 +104,7 @@ async function main() {
         joinDate: new Date('2022-01-10'),
       },
     }),
-    prisma.member.create({
+    prisma.person.create({
       data: {
         name: 'Pedro Almeida',
         email: 'pedro@igreja.com',
@@ -116,7 +115,7 @@ async function main() {
         joinDate: new Date('2022-05-22'),
       },
     }),
-    prisma.member.create({
+    prisma.person.create({
       data: {
         name: 'Luiza Ferreira',
         email: 'luiza@igreja.com',
@@ -127,7 +126,7 @@ async function main() {
         joinDate: new Date('2023-02-14'),
       },
     }),
-    prisma.member.create({
+    prisma.person.create({
       data: {
         name: 'Ricardo Souza',
         email: 'ricardo@igreja.com',
@@ -138,7 +137,7 @@ async function main() {
         joinDate: new Date('2023-08-30'),
       },
     }),
-    prisma.member.create({
+    prisma.person.create({
       data: {
         name: 'Fernanda Lima',
         email: 'fernanda@igreja.com',
@@ -151,102 +150,21 @@ async function main() {
     }),
   ]);
 
-  // Usuários que representam pessoas com acesso (mantidos para rotas atuais)
-  const memberUsers = await Promise.all([
-    prisma.user.create({
-      data: {
-        name: 'Ana Costa',
-        email: 'ana@igreja.com',
-        password: hashedPassword,
-        role: UserRole.MEMBER,
-        phone: '(11) 96666-6666',
-        address: 'Rua das Flores, 321 - São Paulo, SP',
-        category: 'Membro Ativo',
-        status: UserStatus.ACTIVE,
-        joinDate: new Date('2022-01-10'),
-      },
-    }),
-    prisma.user.create({
-      data: {
-        name: 'Pedro Almeida',
-        email: 'pedro@igreja.com',
-        password: hashedPassword,
-        role: UserRole.MEMBER,
-        phone: '(11) 95555-5555',
-        address: 'Av. Brasil, 654 - São Paulo, SP',
-        category: 'Membro Visitante',
-        status: UserStatus.ACTIVE,
-        joinDate: new Date('2022-05-22'),
-      },
-    }),
-    prisma.user.create({
-      data: {
-        name: 'Luiza Ferreira',
-        email: 'luiza@igreja.com',
-        password: hashedPassword,
-        role: UserRole.MEMBER,
-        phone: '(11) 94444-4444',
-        address: 'Rua da Esperança, 987 - São Paulo, SP',
-        category: 'Membro Ativo',
-        status: UserStatus.ACTIVE,
-        joinDate: new Date('2023-02-14'),
-      },
-    }),
-    prisma.user.create({
-      data: {
-        name: 'Ricardo Souza',
-        email: 'ricardo@igreja.com',
-        password: hashedPassword,
-        role: UserRole.MEMBER,
-        phone: '(11) 93333-3333',
-        address: 'Av. Liberdade, 147 - São Paulo, SP',
-        category: 'Membro Novo',
-        status: UserStatus.ACTIVE,
-        joinDate: new Date('2023-08-30'),
-      },
-    }),
-    prisma.user.create({
-      data: {
-        name: 'Fernanda Lima',
-        email: 'fernanda@igreja.com',
-        password: hashedPassword,
-        role: UserRole.MEMBER,
-        phone: '(11) 92222-2222',
-        address: 'Rua do Progresso, 258 - São Paulo, SP',
-        category: 'Membro Ativo',
-        status: UserStatus.ACTIVE,
-        joinDate: new Date('2022-11-05'),
-      },
-    }),
-  ]);
-
-  // 3. ATRIBUIÇÃO DE PERMISSÕES AOS LÍDERES
+  // 4. ATRIBUIÇÃO DE PERMISSÕES
   console.log('🔑 Atribuindo permissões...');
 
-  // Maria (Líder de Louvor) - Permissões de eventos e visualização
   await prisma.userPermission.createMany({
     data: [
       { userId: leader1.id, permissionId: permissions.find(p => p.code === 'events.view')!.id, grantedBy: admin.id },
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'events.create')!.id, grantedBy: admin.id },
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'events.edit')!.id, grantedBy: admin.id },
       { userId: leader1.id, permissionId: permissions.find(p => p.code === 'members.view')!.id, grantedBy: admin.id },
+      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'members.edit')!.id, grantedBy: admin.id },
       { userId: leader1.id, permissionId: permissions.find(p => p.code === 'dashboard.view')!.id, grantedBy: admin.id },
-    ],
-  });
-
-  // Carlos (Líder de Jovens) - Permissões de membros e eventos
-  await prisma.userPermission.createMany({
-    data: [
-      { userId: leader2.id, permissionId: permissions.find(p => p.code === 'events.view')!.id, grantedBy: admin.id },
-      { userId: leader2.id, permissionId: permissions.find(p => p.code === 'members.view')!.id, grantedBy: admin.id },
-      { userId: leader2.id, permissionId: permissions.find(p => p.code === 'members.edit')!.id, grantedBy: admin.id },
-      { userId: leader2.id, permissionId: permissions.find(p => p.code === 'dashboard.view')!.id, grantedBy: admin.id },
     ],
   });
 
   console.log('✅ Permissões atribuídas!');
 
-  // 4. CRIAÇÃO DE EVENTOS
+  // 5. CRIAÇÃO DE EVENTOS
   console.log('📅 Criando eventos...');
 
   const retiroAnual = await prisma.event.create({
@@ -278,7 +196,7 @@ async function main() {
       category: 'Conferência',
       status: EventStatus.ACTIVE,
       imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop',
-      creatorId: leader2.id,
+      creatorId: leader1.id,
       removed: false,
     },
   });
@@ -312,7 +230,7 @@ async function main() {
       category: 'Workshop',
       status: EventStatus.ACTIVE,
       imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=600&fit=crop',
-      creatorId: leader1.id,
+      creatorId: admin.id,
       removed: false,
     },
   });
@@ -334,37 +252,18 @@ async function main() {
     },
   });
 
-  // Evento passado
-  const eventoPassado = await prisma.event.create({
-    data: {
-      title: 'Congresso de Missões 2023',
-      description: 'Evento já realizado com grande impacto missionário.',
-      startDate: new Date('2023-11-15T19:00:00Z'),
-      endDate: new Date('2023-11-17T21:00:00Z'),
-      location: 'Centro de Convenções - São Paulo, SP',
-      capacity: 300,
-      price: 60.00,
-      category: 'Congresso',
-      status: EventStatus.ENDED,
-      imageUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&h=600&fit=crop',
-      creatorId: admin.id,
-      removed: false,
-    },
-  });
+  const allEvents = [retiroAnual, conferencia, cultoEspecial, workshopLideranca, acampamentoFamilias];
 
-  const allEvents = [retiroAnual, conferencia, cultoEspecial, workshopLideranca, acampamentoFamilias, eventoPassado];
-  const allUsers = [admin, leader1, leader2, ...memberUsers];
-
-  // 5. CRIAÇÃO DE INSCRIÇÕES EM EVENTOS
+  // 6. CRIAÇÃO DE INSCRIÇÕES EM EVENTOS
   console.log('📝 Criando inscrições em eventos...');
 
   const memberships = [];
 
-  // Inscrições no Retiro Anual (feitas pelo admin)
-  for (let i = 0; i < 4 && i < members.length; i++) {
+  // Inscrições no Retiro Anual
+  for (let i = 0; i < 3; i++) {
     const membership = await prisma.eventMembership.create({
       data: {
-        memberId: members[i].id,
+        personId: persons[i].id,
         eventId: retiroAnual.id,
         status: RegistrationStatus.CONFIRMED,
         registeredAt: new Date('2024-01-15'),
@@ -374,212 +273,191 @@ async function main() {
     memberships.push(membership);
   }
 
-  // Inscrições na Conferência de Jovens (feitas pelo leader2)
-  for (let i = 0; i < 3 && i < members.length; i++) {
+  // Inscrições na Conferência de Jovens
+  for (let i = 1; i < 4; i++) {
     const membership = await prisma.eventMembership.create({
       data: {
-        memberId: members[(i + 1) % members.length].id,
+        personId: persons[i].id,
         eventId: conferencia.id,
         status: RegistrationStatus.CONFIRMED,
         registeredAt: new Date('2024-02-10'),
-        createdByUserId: leader2.id,
+        createdByUserId: leader1.id,
       },
     });
     memberships.push(membership);
   }
 
-  // 6. CRIAÇÃO DE PAGAMENTOS
-  console.log('💳 Criando pagamentos...');
+  // 7. CRIAÇÃO DE FATURAS (Invoice) → PARCELAS (Installment) → PAGAMENTOS (Payment)
+  console.log('💰 Criando faturas, parcelas e pagamentos...');
 
-  const payments = [];
+  // FATURA 1: Maria Santos - Retiro Anual (à vista)
+  const invoice1 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2024-001',
+      personId: persons[0].id,
+      eventId: retiroAnual.id,
+      totalAmount: 180.00,
+      status: InvoiceStatus.PAID,
+      createdByUserId: admin.id,
+    },
+  });
 
-  // Pagamento para Retiro Anual - 2 tickets
-  const payment1 = await prisma.payment.create({
+  const installment1 = await prisma.installment.create({
+    data: {
+      invoiceId: invoice1.id,
+      installmentNumber: 1,
+      amount: 180.00,
+      dueDate: new Date('2024-02-15'),
+      status: InstallmentStatus.PAID,
+    },
+  });
+
+  await prisma.payment.create({
     data: {
       paymentNumber: 'PAY-2024-001',
-      userId: memberUsers[0].id,
-      eventId: retiroAnual.id,
-      amount: 360.00, // 2 tickets x R$ 180.00
+      installmentId: installment1.id,
+      amount: 180.00,
       method: PaymentMethod.PIX,
       status: PaymentStatus.PAID,
       transactionId: 'TXN-PIX-001',
       stripePaymentIntentId: 'pi_3NqK8I2eZvKYlo2C0vZdcA1B',
       stripeCustomerId: 'cus_OqK8I2eZvKYlo2C',
-      paidAt: new Date('2024-01-20T10:30:00Z'),
-      dueDate: new Date('2024-03-01T23:59:59Z'),
+      paidAt: new Date('2024-02-10T10:30:00Z'),
+      createdByUserId: admin.id,
     },
   });
-  payments.push(payment1);
 
-  // Pagamento para Conferência - 1 ticket
-  const payment2 = await prisma.payment.create({
-    data: {
-      paymentNumber: 'PAY-2024-002',
-      userId: memberUsers[1].id,
-      eventId: conferencia.id,
-      amount: 75.00,
-      method: PaymentMethod.CREDIT_CARD,
-      status: PaymentStatus.PAID,
-      transactionId: 'TXN-CC-002',
-      stripePaymentIntentId: 'pi_3NqK8I2eZvKYlo2C0vZdcA2C',
-      stripeCustomerId: 'cus_OqK8I2eZvKYlo2D',
-      paidAt: new Date('2024-02-15T14:45:00Z'),
-      dueDate: new Date('2024-04-01T23:59:59Z'),
-    },
-  });
-  payments.push(payment2);
-
-  // Pagamento para Workshop - 1 ticket
-  const payment3 = await prisma.payment.create({
-    data: {
-      paymentNumber: 'PAY-2024-003',
-      userId: memberUsers[2].id,
-      eventId: workshopLideranca.id,
-      amount: 45.00,
-      method: PaymentMethod.PIX,
-      status: PaymentStatus.PAID,
-      transactionId: 'TXN-PIX-003',
-      stripePaymentIntentId: 'pi_3NqK8I2eZvKYlo2C0vZdcA3D',
-      stripeCustomerId: 'cus_OqK8I2eZvKYlo2E',
-      paidAt: new Date('2024-03-01T09:15:00Z'),
-      dueDate: new Date('2024-05-10T23:59:59Z'),
-    },
-  });
-  payments.push(payment3);
-
-  // Pagamento pendente
-  const payment4 = await prisma.payment.create({
-    data: {
-      paymentNumber: 'PAY-2024-004',
-      userId: memberUsers[3].id,
-      eventId: acampamentoFamilias.id,
-      amount: 240.00, // 2 tickets x R$ 120.00
-      method: PaymentMethod.BANK_TRANSFER,
-      status: PaymentStatus.PENDING,
-      dueDate: new Date('2024-07-10T23:59:59Z'),
-    },
-  });
-  payments.push(payment4);
-
-  // 7. CRIAÇÃO DE TICKETS
-  console.log('🎫 Criando tickets...');
-
-  // Tickets para o primeiro pagamento (Retiro Anual - 2 tickets)
   await prisma.ticket.create({
     data: {
       ticketNumber: 'TKT-RET-2024-001',
-      userId: memberUsers[0].id,
+      personId: persons[0].id,
       eventId: retiroAnual.id,
+      invoiceId: invoice1.id,
       ticketType: 'VIP',
       price: 180.00,
       status: TicketStatus.ACTIVE,
       qrCode: 'QR-RET-001-' + Date.now(),
-      stripePaymentIntentId: payment1.stripePaymentIntentId,
-      stripeCustomerId: payment1.stripeCustomerId,
-      paymentId: payment1.id,
     },
   });
 
-  await prisma.ticket.create({
+  // FATURA 2: Ana Costa - Conferência (3x parcelas)
+  const invoice2 = await prisma.invoice.create({
     data: {
-      ticketNumber: 'TKT-RET-2024-002',
-      userId: memberUsers[0].id,
-      eventId: retiroAnual.id,
-      ticketType: 'VIP',
-      price: 180.00,
-      status: TicketStatus.ACTIVE,
-      qrCode: 'QR-RET-002-' + Date.now(),
-      stripePaymentIntentId: payment1.stripePaymentIntentId,
-      stripeCustomerId: payment1.stripeCustomerId,
-      paymentId: payment1.id,
+      invoiceNumber: 'INV-2024-002',
+      personId: persons[1].id,
+      eventId: conferencia.id,
+      totalAmount: 75.00,
+      status: InvoiceStatus.PARTIALLY_PAID,
+      createdByUserId: admin.id,
     },
   });
 
-  // Ticket para o segundo pagamento (Conferência)
+  const installment2_1 = await prisma.installment.create({
+    data: {
+      invoiceId: invoice2.id,
+      installmentNumber: 1,
+      amount: 25.00,
+      dueDate: new Date('2024-03-01'),
+      status: InstallmentStatus.PAID,
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      paymentNumber: 'PAY-2024-002',
+      installmentId: installment2_1.id,
+      amount: 25.00,
+      method: PaymentMethod.CREDIT_CARD,
+      status: PaymentStatus.PAID,
+      transactionId: 'TXN-CC-002',
+      stripePaymentIntentId: 'pi_3NqK8I2eZvKYlo2C0vZdcA2C',
+      paidAt: new Date('2024-03-01T14:45:00Z'),
+      createdByUserId: admin.id,
+    },
+  });
+
+  await prisma.installment.create({
+    data: {
+      invoiceId: invoice2.id,
+      installmentNumber: 2,
+      amount: 25.00,
+      dueDate: new Date('2024-04-01'),
+      status: InstallmentStatus.PENDING,
+    },
+  });
+
+  await prisma.installment.create({
+    data: {
+      invoiceId: invoice2.id,
+      installmentNumber: 3,
+      amount: 25.00,
+      dueDate: new Date('2024-05-01'),
+      status: InstallmentStatus.PENDING,
+    },
+  });
+
   await prisma.ticket.create({
     data: {
       ticketNumber: 'TKT-CONF-2024-001',
-      userId: memberUsers[1].id,
+      personId: persons[1].id,
       eventId: conferencia.id,
+      invoiceId: invoice2.id,
       ticketType: 'STANDARD',
       price: 75.00,
       status: TicketStatus.ACTIVE,
       qrCode: 'QR-CONF-001-' + Date.now(),
-      stripePaymentIntentId: payment2.stripePaymentIntentId,
-      stripeCustomerId: payment2.stripeCustomerId,
-      paymentId: payment2.id,
     },
   });
 
-  // Ticket para o terceiro pagamento (Workshop)
+  // FATURA 3: Pedro - Workshop (à vista, pendente)
+  const invoice3 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2024-003',
+      personId: persons[2].id,
+      eventId: workshopLideranca.id,
+      totalAmount: 45.00,
+      status: InvoiceStatus.PENDING,
+      createdByUserId: admin.id,
+    },
+  });
+
+  await prisma.installment.create({
+    data: {
+      invoiceId: invoice3.id,
+      installmentNumber: 1,
+      amount: 45.00,
+      dueDate: new Date('2024-05-10'),
+      status: InstallmentStatus.PENDING,
+    },
+  });
+
   await prisma.ticket.create({
     data: {
       ticketNumber: 'TKT-WORK-2024-001',
-      userId: memberUsers[2].id,
+      personId: persons[2].id,
       eventId: workshopLideranca.id,
+      invoiceId: invoice3.id,
       ticketType: 'STANDARD',
       price: 45.00,
       status: TicketStatus.ACTIVE,
       qrCode: 'QR-WORK-001-' + Date.now(),
-      stripePaymentIntentId: payment3.stripePaymentIntentId,
-      stripeCustomerId: payment3.stripeCustomerId,
-      paymentId: payment3.id,
-    },
-  });
-
-  // Tickets para o pagamento pendente (Acampamento - 2 tickets)
-  await prisma.ticket.create({
-    data: {
-      ticketNumber: 'TKT-CAMP-2024-001',
-      userId: memberUsers[3].id,
-      eventId: acampamentoFamilias.id,
-      ticketType: 'FAMILY',
-      price: 120.00,
-      status: TicketStatus.ACTIVE,
-      qrCode: 'QR-CAMP-001-' + Date.now(),
-      paymentId: payment4.id,
-    },
-  });
-
-  await prisma.ticket.create({
-    data: {
-      ticketNumber: 'TKT-CAMP-2024-002',
-      userId: memberUsers[3].id,
-      eventId: acampamentoFamilias.id,
-      ticketType: 'FAMILY',
-      price: 120.00,
-      status: TicketStatus.ACTIVE,
-      qrCode: 'QR-CAMP-002-' + Date.now(),
-      paymentId: payment4.id,
-    },
-  });
-
-  // Ticket usado (evento passado)
-  await prisma.ticket.create({
-    data: {
-      ticketNumber: 'TKT-MISS-2023-001',
-      userId: memberUsers[4].id,
-      eventId: eventoPassado.id,
-      ticketType: 'STANDARD',
-      price: 60.00,
-      status: TicketStatus.USED,
-      qrCode: 'QR-MISS-001-' + Date.now(),
     },
   });
 
   console.log('\n✅ Seed concluído com sucesso!');
   console.log('\n📊 Dados criados:');
   console.log(`   🔐 ${permissions.length} permissões`);
-  console.log(`   👥 ${allUsers.length} usuários (1 admin, 2 líderes, ${members.length} membros)`);
+  console.log(`   👥 2 usuários (1 admin, 1 líder)`);
+  console.log(`   👤 ${persons.length} pessoas (membros)`);
   console.log(`   📅 ${allEvents.length} eventos`);
   console.log(`   📝 ${memberships.length} inscrições`);
-  console.log(`   💳 ${payments.length} pagamentos`);
-  console.log(`   🎫 7 tickets`);
+  console.log(`   💰 3 faturas (Invoice)`);
+  console.log(`   📄 5 parcelas (Installment)`);
+  console.log(`   💳 2 pagamentos (Payment)`);
+  console.log(`   🎫 3 tickets`);
   console.log('\n🔑 Credenciais de acesso:');
   console.log('   Admin: admin@igreja.com / 123456');
-  console.log('   Líder 1: maria@igreja.com / 123456');
-  console.log('   Líder 2: carlos@igreja.com / 123456');
-  console.log('   Membro: ana@igreja.com / 123456');
+  console.log('   Líder: carlos@igreja.com / 123456');
   console.log('');
 }
 

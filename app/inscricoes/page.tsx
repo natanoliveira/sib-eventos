@@ -143,7 +143,7 @@ export default function InscricoesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          memberId: selectedMember.id,
+          personId: selectedMember.id,
           eventId: event.id,
         }),
       });
