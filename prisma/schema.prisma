@@ -1,0 +1,296 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // For email/password auth
+  role          UserRole   @default(MEMBER)
+  phone         String?
+  address       String?
+  category      String?
+  status        UserStatus @default(ACTIVE)
+  joinDate      DateTime   @default(now())
+
+  accounts        Account[]
+  sessions        Session[]
+  memberships     EventMembership[] @relation("MembershipCreator")
+  paymentsCreated Payment[]         @relation("PaymentCreator")
+  createdEvents   Event[]           @relation("EventCreator")
+  userPermissions UserPermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Person {
+  id       String     @id @default(cuid())
+  name     String
+  email    String     @unique
+  phone    String?
+  address  String?
+  category String?
+  status   UserStatus @default(ACTIVE)
+  joinDate DateTime   @default(now())
+  notes    String?
+  image    String?
+
+  memberships EventMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  description String?     @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  location    String
+  capacity    Int
+  price       Decimal     @db.Decimal(10, 2)
+  category    String
+  status      EventStatus @default(ACTIVE)
+  imageUrl    String?
+  removed     Boolean     @default(false)
+
+  creatorId String
+  creator   User   @relation("EventCreator", fields: [creatorId], references: [id])
+
+  memberships EventMembership[]
+  tickets     Ticket[]
+  payments    Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EventMembership {
+  id              String             @id @default(cuid())
+  personId        String
+  eventId         String
+  createdByUserId String?
+  status          RegistrationStatus @default(PENDING)
+  registeredAt    DateTime           @default(now())
+
+  person        Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdByUser User?  @relation("MembershipCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([personId, eventId])
+  @@index([createdByUserId])
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  ticketNumber String       @unique
+  personId     String
+  eventId      String
+  ticketType   String       @default("STANDARD")
+  price        Decimal      @db.Decimal(10, 2)
+  status       TicketStatus @default(ACTIVE)
+  qrCode       String?      @unique
+
+  // Stripe integration
+  stripePaymentIntentId String?
+  stripeCustomerId      String?
+
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+  paymentId String?
+
+  issuedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  paymentNumber String        @unique
+  personId      String
+  createdByUserId String?
+  eventId       String
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+
+  // Stripe integration
+  stripePaymentIntentId String? @unique
+  stripeCustomerId      String?
+  stripeChargeId        String?
+
+  // Installment info
+  installments Int @default(1)
+
+  dueDate DateTime?
+  paidAt  DateTime?
+
+  person              Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  createdByUser       User?                @relation("PaymentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  event               Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets             Ticket[]
+  paymentInstallments PaymentInstallment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentInstallment {
+  id                String            @id @default(cuid())
+  paymentId         String
+  installmentNumber Int
+  amount            Decimal           @db.Decimal(10, 2)
+  dueDate           DateTime
+  status            InstallmentStatus @default(PENDING)
+  paidAt            DateTime?
+
+  // Stripe integration for individual installments
+  stripePaymentIntentId String? @unique
+  stripeChargeId        String?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([paymentId, installmentNumber])
+}
+
+// Permission System
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., "events.create", "members.delete"
+  name        String
+  description String?
+  module      String // e.g., "events", "members", "payments"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userPermissions UserPermission[]
+}
+
+model UserPermission {
+  id           String   @id @default(cuid())
+  userId       String
+  permissionId String
+  grantedAt    DateTime @default(now())
+  grantedBy    String? // userId of who granted this permission
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  LEADER
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  FULL
+  ENDED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
