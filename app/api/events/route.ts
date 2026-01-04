@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth-utils';
+import { errorResponse } from '@/lib/api-response';
+import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 
-// GET /api/events - Listar eventos
-export const GET = async (request: NextRequest) => {
+/**
+ * GET /api/events - Listar eventos
+ *
+ * ROTA PÚBLICA: Esta rota é intencionalmente pública para permitir
+ * visualização de eventos e inscrições online por usuários não autenticados.
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Filtra apenas eventos não removidos
+ * - Não expõe informações sensíveis (passwords, etc.)
+ */
+async function getEventsHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -31,14 +43,14 @@ export const GET = async (request: NextRequest) => {
           select: {
             id: true,
             name: true,
-            email: true,
+            // Não expor email do criador publicamente
           },
         },
         _count: {
           select: {
             memberships: true,
             tickets: true,
-            invoices: true,
+            // Não expor contagem de invoices publicamente
           },
         },
       },
@@ -49,13 +61,12 @@ export const GET = async (request: NextRequest) => {
 
     return NextResponse.json(events);
   } catch (error) {
-    console.error('Error fetching events:', error);
-    return NextResponse.json(
-      { error: 'Erro ao buscar eventos' },
-      { status: 500 }
-    );
+    return errorResponse('Erro ao buscar eventos', 500, error);
   }
-};
+}
+
+// Aplicar rate limiting para proteção contra abuse
+export const GET = withRateLimit(apiLimiter, getEventsHandler);
 
 // POST /api/events - Criar evento
 export const POST = requirePermission('events.create')(

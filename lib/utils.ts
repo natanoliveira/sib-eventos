@@ -432,25 +432,95 @@ export function validateEmail(email: string): {
  * @param {string} email - Email a ser verificado.
  * @returns {Promise<object>} Objeto com resultado da verificação.
  */
-export async function checkEmailDomainExists(email: string): Promise<{
-  exists: boolean;
-  error?: string;
-}> {
-  try {
-    const response = await fetch('/api/utils/validate-email-domain', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
+// export async function checkEmailDomainExists(email: string): Promise<{
+//   exists: boolean;
+//   error?: string;
+// }> {
+//   try {
+//     const response = await fetch('/api/utils/validate-email-domain', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ email }),
+//     });
 
-    if (!response.ok) {
-      return { exists: false, error: 'Erro ao verificar domínio' };
-    }
+//     if (!response.ok) {
+//       return { exists: false, error: 'Erro ao verificar domínio' };
+//     }
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Erro ao verificar domínio:', error);
-    return { exists: false, error: 'Erro ao conectar com o servidor' };
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error('Erro ao verificar domínio:', error);
+//     return { exists: false, error: 'Erro ao conectar com o servidor' };
+//   }
+// }
+/**
+ * Valida a força de uma senha.
+ *
+ * @param {string} password - Senha a ser validada.
+ * @returns {object} Objeto com isValid (boolean) e errors (array de strings).
+ */
+export function validatePasswordStrength(password: string): {
+  isValid: boolean;
+  errors: string[];
+  strength: 'weak' | 'medium' | 'strong';
+} {
+  const errors: string[] = [];
+  let score = 0;
+
+  // Verifica tamanho mínimo
+  if (password.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  } else {
+    score++;
+    if (password.length >= 12) score++;
   }
+
+  // Verifica letra minúscula
+  if (!/[a-z]/.test(password)) {
+    errors.push('A senha deve conter pelo menos uma letra minúscula');
+  } else {
+    score++;
+  }
+
+  // Verifica letra maiúscula
+  if (!/[A-Z]/.test(password)) {
+    errors.push('A senha deve conter pelo menos uma letra maiúscula');
+  } else {
+    score++;
+  }
+
+  // Verifica número
+  if (!/[0-9]/.test(password)) {
+    errors.push('A senha deve conter pelo menos um número');
+  } else {
+    score++;
+  }
+
+  // Verifica caractere especial (opcional, mas adiciona pontos)
+  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    score++;
+  }
+
+  // Verifica senhas comuns
+  const commonPasswords = [
+    'password', '12345678', 'qwerty', 'abc123', '111111', '123456',
+    'admin', 'letmein', 'welcome', 'monkey', 'dragon', 'master'
+  ];
+
+  if (commonPasswords.includes(password.toLowerCase())) {
+    errors.push('Senha muito comum. Escolha uma senha mais forte');
+    score = 0;
+  }
+
+  // Calcula força
+  let strength: 'weak' | 'medium' | 'strong' = 'weak';
+  if (score >= 5) strength = 'strong';
+  else if (score >= 3) strength = 'medium';
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    strength,
+  };
 }

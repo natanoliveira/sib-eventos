@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -11,55 +11,9 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Switch } from "./ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Search, UserPlus, Edit2, Trash2, Shield, ShieldCheck, Users } from "lucide-react";
-
-const mockUsers = [
-  {
-    id: 1,
-    name: "João Silva",
-    email: "joao@igreja.com",
-    role: "admin",
-    permissions: {
-      "events.create": true,
-      "events.edit": true,
-      "events.delete": true,
-      "members.view": true,
-      "members.create": true,
-      "members.edit": true,
-      "dashboard.view": true,
-      "tickets.view": true,
-      "tickets.create": true,
-      "payments.view": true
-    },
-    active: true
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    email: "maria@igreja.com",
-    role: "leader",
-    permissions: {
-      "events.create": true,
-      "events.edit": true,
-      "members.view": true,
-      "members.create": true,
-      "dashboard.view": true,
-      "tickets.view": true
-    },
-    active: true
-  },
-  {
-    id: 3,
-    name: "Pedro Costa",
-    email: "pedro@igreja.com",
-    role: "member",
-    permissions: {
-      "members.view": true,
-      "dashboard.view": true
-    },
-    active: false
-  }
-];
+import { Search, UserPlus, Edit2, Trash2, Shield, ShieldCheck, Users, Loader2 } from "lucide-react";
+import { toastSuccess, toastError } from '../lib/toast';
+import { apiClient } from '../lib/api-client';
 
 const availablePermissions = [
   { key: "events.create", label: "Criar Eventos" },
@@ -76,51 +30,75 @@ const availablePermissions = [
 ];
 
 export function UsersManagement() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<typeof mockUsers[0] | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'member',
+    role: 'MEMBER',
     permissions: {} as Record<string, boolean>
   });
 
   const [editUser, setEditUser] = useState({
     name: '',
     email: '',
-    role: 'member',
+    role: 'MEMBER',
     permissions: {} as Record<string, boolean>
   });
 
-  const filteredUsers = mockUsers.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getUsers();
+      setUsers(data);
+    } catch (error: any) {
+      toastError('Erro ao carregar usuários');
+      console.error('Error loading users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter(user =>
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAddUser = async () => {
     try {
       setIsSubmitting(true);
-      console.log('Adding user:', newUser);
+      await apiClient.createUser(newUser);
+      toastSuccess('Usuário criado com sucesso!');
       setIsAddDialogOpen(false);
       setNewUser({
         name: '',
         email: '',
         password: '',
-        role: 'member',
+        role: 'MEMBER',
         permissions: {}
       });
+      await loadUsers();
+    } catch (error: any) {
+      toastError(error.message || 'Erro ao criar usuário');
+      console.error('Error creating user:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleEditClick = (user: typeof mockUsers[0]) => {
+  const handleEditClick = (user: any) => {
     setSelectedUser(user);
     setEditUser({
       name: user.name,
@@ -134,15 +112,20 @@ export function UsersManagement() {
   const handleUpdateUser = async () => {
     try {
       setIsSubmitting(true);
-      console.log('Updating user:', selectedUser?.id, editUser);
+      await apiClient.updateUser(selectedUser?.id, editUser);
+      toastSuccess('Usuário atualizado com sucesso!');
       setIsEditDialogOpen(false);
       setSelectedUser(null);
+      await loadUsers();
+    } catch (error: any) {
+      toastError(error.message || 'Erro ao atualizar usuário');
+      console.error('Error updating user:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteClick = (user: typeof mockUsers[0]) => {
+  const handleDeleteClick = (user: any) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
@@ -150,9 +133,14 @@ export function UsersManagement() {
   const handleDeleteUser = async () => {
     try {
       setIsSubmitting(true);
-      console.log('Deleting user:', selectedUser?.id);
+      await apiClient.deleteUser(selectedUser?.id);
+      toastSuccess('Usuário removido com sucesso!');
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
+      await loadUsers();
+    } catch (error: any) {
+      toastError(error.message || 'Erro ao remover usuário');
+      console.error('Error deleting user:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -160,8 +148,10 @@ export function UsersManagement() {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
+      case 'ADMIN':
       case 'admin':
         return <Badge className="bg-indigo-100 text-indigo-800"><ShieldCheck className="w-3 h-3 mr-1" />Admin</Badge>;
+      case 'LEADER':
       case 'leader':
         return <Badge className="bg-blue-100 text-blue-800"><Shield className="w-3 h-3 mr-1" />Líder</Badge>;
       default:
@@ -273,9 +263,9 @@ export function UsersManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="leader">Líder</SelectItem>
-                      <SelectItem value="member">Membro</SelectItem>
+                      <SelectItem value="ADMIN">Administrador</SelectItem>
+                      <SelectItem value="LEADER">Líder</SelectItem>
+                      <SelectItem value="MEMBER">Membro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -322,66 +312,76 @@ export function UsersManagement() {
       </Card>
 
       {/* Users Grid */}
-      <div className="grid gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="" alt={user.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-                      {user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-blue-900">{user.name}</h3>
-                      {getRoleBadge(user.role)}
-                      {!user.active && <Badge variant="outline" className="border-red-200 text-red-600">Inativo</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {Object.keys(user.permissions).length} permissões configuradas
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-200 hover:bg-blue-50"
-                    onClick={() => handleEditClick(user)}
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-200 hover:bg-red-50 text-red-600"
-                    onClick={() => handleDeleteClick(user)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredUsers.length === 0 && (
+      {loading ? (
         <Card className="border-blue-200">
-          <CardContent className="text-center py-8">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg text-muted-foreground mb-2">Nenhum usuário encontrado</h3>
-            <p className="text-sm text-muted-foreground">
-              Crie um novo usuário ou ajuste os filtros de busca
-            </p>
+          <CardContent className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </CardContent>
         </Card>
+      ) : (
+        <>
+          <div className="grid gap-4">
+            {filteredUsers.map((user) => (
+              <Card key={user.id} className="border-blue-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src="" alt={user.name} />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                          {user.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-semibold text-blue-900">{user.name}</h3>
+                          {getRoleBadge(user.role)}
+                          {user.status === 'INACTIVE' && <Badge variant="outline" className="border-red-200 text-red-600">Inativo</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {Object.keys(user.permissions || {}).length} permissões configuradas
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-200 hover:bg-blue-50"
+                        onClick={() => handleEditClick(user)}
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-200 hover:bg-red-50 text-red-600"
+                        onClick={() => handleDeleteClick(user)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {filteredUsers.length === 0 && (
+            <Card className="border-blue-200">
+              <CardContent className="text-center py-8">
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg text-muted-foreground mb-2">Nenhum usuário encontrado</h3>
+                <p className="text-sm text-muted-foreground">
+                  Crie um novo usuário ou ajuste os filtros de busca
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Edit User Dialog */}
@@ -425,9 +425,9 @@ export function UsersManagement() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="leader">Líder</SelectItem>
-                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="ADMIN">Administrador</SelectItem>
+                  <SelectItem value="LEADER">Líder</SelectItem>
+                  <SelectItem value="MEMBER">Membro</SelectItem>
                 </SelectContent>
               </Select>
             </div>

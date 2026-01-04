@@ -7,7 +7,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Separator } from "./ui/separator";
 import { Mail, Lock, Chrome } from "lucide-react";
-import { toastSuccess, toastError } from "../lib/toast";
+import { toastError, toastInfo } from "../lib/toast";
 
 interface LoginFormProps {
   onLogin: (type: 'email' | 'google', credentials?: { email: string; password: string }) => void;
@@ -27,13 +27,18 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     setError('');
     try {
       await onLogin('email', { email, password });
-      toastSuccess('Login realizado com sucesso');
+      toastInfo('Login realizado com sucesso');
     } catch (error) {
       console.error('Login error:', error);
       const message =
         error instanceof Error ? error.message : 'E-mail ou senha incorretos';
-      setError(message);
-      toastError(message);
+
+      if (message === 'Failed to fetch') {
+        toastError('Erro ao conectar ao servidor');
+      } else {
+        setError(message);
+        toastError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +49,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     setError('');
     try {
       await onLogin('google');
-      toastSuccess('Login com Google realizado');
+      toastInfo('Login com Google realizado');
     } catch (error) {
       console.error('Google login error:', error);
       const message =

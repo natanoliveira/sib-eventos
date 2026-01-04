@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { generateToken } from '@/lib/auth';
+import { validateEmail, validatePasswordStrength } from '@/lib/utils';
+import { errorResponse, validationErrorResponse } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
+import { withRateLimit, registerLimiter } from '@/lib/rate-limit';
 
-export async function POST(request: NextRequest) {
+async function registerHandler(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, email, password, phone, address, category } = body;
 
+    // Validações básicas
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: 'Nome, email e senha são obrigatórios' },
@@ -15,32 +20,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validar email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      logger.warn('Tentativa de registro com email inválido', { email, errors: emailValidation.errors });
+      return validationErrorResponse({
+        email: emailValidation.errors.join(', '),
+      });
+    }
+
+    // Validar força da senha
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      logger.warn('Tentativa de registro com senha fraca', { email });
+      return validationErrorResponse({
+        password: passwordValidation.errors.join(', '),
+      });
+    }
+
+    // Verificar se email já existe
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase().trim() },
     });
 
     if (existingUser) {
+      logger.warn('Tentativa de registro com email já cadastrado', { email });
       return NextResponse.json(
         { error: 'Email já cadastrado' },
         { status: 409 }
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash da senha com bcrypt (12 rounds para segurança)
+    const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Criar usuário
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
         password: hashedPassword,
         phone,
         address,
         category,
         role: 'MEMBER',
+        status: 'ACTIVE',
       },
     });
 
     const token = generateToken(user.id);
+
+    logger.info('Novo usuário registrado', { userId: user.id, email: user.email });
 
     return NextResponse.json(
       {
@@ -50,15 +80,16 @@ export async function POST(request: NextRequest) {
           name: user.name,
           email: user.email,
           role: user.role,
+          image: user.image,
         },
+        passwordStrength: passwordValidation.strength,
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Erro ao criar conta' },
-      { status: 500 }
-    );
+    return errorResponse('Erro ao criar conta', 500, error);
   }
 }
+
+// Aplicar rate limiting: 3 registros por hora
+export const POST = withRateLimit(registerLimiter, registerHandler);

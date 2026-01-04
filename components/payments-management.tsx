@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,103 +9,42 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Progress } from "./ui/progress";
-import { Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText } from "lucide-react";
-import { toastSuccess } from '../lib/toast';
-
-const mockPayments = [
-  {
-    id: "PAY001",
-    memberName: "Maria Silva",
-    memberEmail: "maria.silva@email.com",
-    eventTitle: "Encontro de Jovens 2024",
-    amount: 89.90,
-    method: "PIX",
-    status: "Aprovado",
-    date: "2024-10-15",
-    transactionId: "PIX123456789",
-    dueDate: "2024-10-20"
-  },
-  {
-    id: "PAY002",
-    memberName: "João Santos", 
-    memberEmail: "joao.santos@email.com",
-    eventTitle: "Encontro de Jovens 2024",
-    amount: 129.90,
-    method: "Cartão de Crédito",
-    status: "Aprovado",
-    date: "2024-10-20",
-    transactionId: "CC987654321",
-    dueDate: "2024-10-25"
-  },
-  {
-    id: "PAY003",
-    memberName: "Ana Costa",
-    memberEmail: "ana.costa@email.com", 
-    eventTitle: "Retiro Espiritual",
-    amount: 120.00,
-    method: "PIX",
-    status: "Pendente",
-    date: "2024-10-25",
-    transactionId: "PIX555666777",
-    dueDate: "2024-11-01"
-  },
-  {
-    id: "PAY004",
-    memberName: "Pedro Oliveira",
-    memberEmail: "pedro.oliveira@email.com",
-    eventTitle: "Retiro Espiritual", 
-    amount: 120.00,
-    method: "Cartão de Crédito",
-    status: "Recusado",
-    date: "2024-10-22",
-    transactionId: "CC111222333",
-    dueDate: "2024-10-27"
-  }
-];
-
-const paymentStats = [
-  {
-    title: "Receita Total",
-    value: "R$ 15.400",
-    icon: DollarSign,
-    change: "+12.5%",
-    color: "text-green-600"
-  },
-  {
-    title: "Pagamentos Aprovados",
-    value: "234",
-    icon: CheckCircle,
-    change: "+8.2%",
-    color: "text-green-600"
-  },
-  {
-    title: "Pendentes",
-    value: "23",
-    icon: Clock,
-    change: "-2.1%",
-    color: "text-yellow-600"
-  },
-  {
-    title: "Recusados",
-    value: "8",
-    icon: XCircle,
-    change: "+1.5%",
-    color: "text-red-600"
-  }
-];
+import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2 } from "lucide-react";
+import { toastSuccess, toastError } from '../lib/toast';
+import { apiClient } from '../lib/api-client';
 
 export function PaymentsManagement() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedMethod, setSelectedMethod] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  const filteredPayments = mockPayments.filter(payment => {
-    const matchesSearch = payment.memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.id.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    loadPayments();
+  }, []);
+
+  const loadPayments = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getPayments();
+      setPayments(data);
+    } catch (error: any) {
+      toastError('Erro ao carregar pagamentos');
+      console.error('Error loading payments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredPayments = payments.filter(payment => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      (payment.installment?.invoice?.person?.name || '').toLowerCase().includes(searchLower) ||
+      (payment.installment?.invoice?.person?.email || '').toLowerCase().includes(searchLower) ||
+      payment.id.toLowerCase().includes(searchLower);
     const matchesStatus = selectedStatus === 'all' || payment.status === selectedStatus;
     const matchesMethod = selectedMethod === 'all' || payment.method === selectedMethod;
     return matchesSearch && matchesStatus && matchesMethod;
@@ -135,14 +74,17 @@ export function PaymentsManagement() {
   };
 
   const handleRefundPayment = (paymentId: string) => {
-    // Mock refund functionality
     console.log('Processing refund for:', paymentId);
     toastSuccess('Estorno processado com sucesso!');
   };
 
-  const totalRevenue = mockPayments
-    .filter(p => p.status === 'Aprovado')
+  const totalRevenue = payments
+    .filter(p => p.status === 'PAID')
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const approvedCount = payments.filter(p => p.status === 'PAID').length;
+  const pendingCount = payments.filter(p => p.status === 'PENDING').length;
+  const failedCount = payments.filter(p => p.status === 'FAILED').length;
 
   return (
     <div className="space-y-6">
@@ -155,45 +97,46 @@ export function PaymentsManagement() {
 
       {/* Payment Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {paymentStats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title} className="border-blue-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">{stat.title}</CardTitle>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl text-blue-900">{stat.value}</div>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <TrendingUp className={`mr-1 h-3 w-3 ${stat.color}`} />
-                  <span className={stat.color}>{stat.change}</span>
-                  <span className="ml-1">em relação ao mês anterior</span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm">Receita Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl text-blue-900">R$ {totalRevenue.toFixed(2)}</div>
+          </CardContent>
+        </Card>
 
-      {/* Revenue Progress */}
-      <Card className="border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-900">Meta de Receita Mensal</CardTitle>
-          <CardDescription>
-            Progresso em relação à meta de R$ 20.000
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>R$ {totalRevenue.toFixed(2)} arrecadados</span>
-              <span>77% da meta</span>
-            </div>
-            <Progress value={77} className="h-3" />
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm">Pagamentos Aprovados</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl text-blue-900">{approvedCount}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm">Pendentes</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl text-blue-900">{pendingCount}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm">Recusados</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl text-blue-900">{failedCount}</div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filters */}
       <Card className="border-blue-200">
@@ -244,65 +187,75 @@ export function PaymentsManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID / Participante</TableHead>
-                <TableHead>Evento</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Método</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPayments.map((payment) => (
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID / Participante</TableHead>
+                  <TableHead>Evento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Método</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPayments.map((payment) => {
+                  const memberName = payment.installment?.invoice?.person?.name || 'N/A';
+                  const memberEmail = payment.installment?.invoice?.person?.email || 'N/A';
+                  const eventTitle = payment.installment?.invoice?.event?.title || 'N/A';
+
+                  return (
                 <TableRow key={payment.id}>
                   <TableCell>
                     <div className="space-y-1">
                       <div className="text-blue-900 text-sm">{payment.id}</div>
                       <div className="flex items-center space-x-2">
                         <Avatar className="h-8 w-8 border border-blue-200">
-                          <AvatarImage src="" alt={payment.memberName} />
+                          <AvatarImage src="" alt={memberName} />
                           <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
-                            {payment.memberName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="text-sm">{payment.memberName}</div>
-                          <div className="text-xs text-muted-foreground">{payment.memberEmail}</div>
+                          <div className="text-sm">{memberName}</div>
+                          <div className="text-xs text-muted-foreground">{memberEmail}</div>
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
-                    <div className="text-sm text-blue-900">{payment.eventTitle}</div>
+                    <div className="text-sm text-blue-900">{eventTitle}</div>
                   </TableCell>
-                  
+
                   <TableCell>
                     <div className="text-blue-900">
                       R$ {payment.amount.toFixed(2)}
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
                     <div className="flex items-center space-x-2">
                       {getMethodIcon(payment.method)}
                       <span className="text-sm">{payment.method}</span>
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Badge className={getStatusColor(payment.status)}>
                       {payment.status}
                     </Badge>
                   </TableCell>
-                  
+
                   <TableCell>
                     <div className="text-sm">
-                      {new Date(payment.date).toLocaleDateString('pt-BR')}
+                      {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}
                     </div>
                   </TableCell>
                   
@@ -329,9 +282,11 @@ export function PaymentsManagement() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -345,7 +300,12 @@ export function PaymentsManagement() {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedPayment && (
+          {selectedPayment && (() => {
+            const memberName = selectedPayment.installment?.invoice?.person?.name || 'N/A';
+            const memberEmail = selectedPayment.installment?.invoice?.person?.email || 'N/A';
+            const eventTitle = selectedPayment.installment?.invoice?.event?.title || 'N/A';
+
+            return (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -359,34 +319,34 @@ export function PaymentsManagement() {
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Participante</label>
                 <div className="flex items-center space-x-2">
                   <Avatar className="h-10 w-10 border border-blue-200">
-                    <AvatarImage src="" alt={selectedPayment.memberName} />
+                    <AvatarImage src="" alt={memberName} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
-                      {selectedPayment.memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                      {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div>{selectedPayment.memberName}</div>
-                    <div className="text-sm text-muted-foreground">{selectedPayment.memberEmail}</div>
+                    <div>{memberName}</div>
+                    <div className="text-sm text-muted-foreground">{memberEmail}</div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Evento</label>
-                  <div className="text-blue-900">{selectedPayment.eventTitle}</div>
+                  <div className="text-blue-900">{eventTitle}</div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Valor</label>
                   <div className="text-blue-900">R$ {selectedPayment.amount.toFixed(2)}</div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Método de Pagamento</label>
@@ -397,13 +357,13 @@ export function PaymentsManagement() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Data do Pagamento</label>
-                  <div>{new Date(selectedPayment.date).toLocaleDateString('pt-BR')}</div>
+                  <div>{selectedPayment.paidAt ? new Date(selectedPayment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}</div>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">ID da Transação</label>
-                <div className="bg-muted p-2 rounded text-sm font-mono">{selectedPayment.transactionId}</div>
+                <label className="text-sm text-muted-foreground">ID da Transação Stripe</label>
+                <div className="bg-muted p-2 rounded text-sm font-mono">{selectedPayment.stripePaymentIntentId || selectedPayment.stripeChargeId || 'N/A'}</div>
               </div>
               
               {selectedPayment.status === 'Aprovado' && (
@@ -419,7 +379,8 @@ export function PaymentsManagement() {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

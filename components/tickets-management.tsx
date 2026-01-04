@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,87 +9,85 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Search, Download, QrCode, Mail, Printer, Calendar, MapPin, User } from "lucide-react";
-import { toastSuccess } from '../lib/toast';
-
-const mockTickets = [
-  {
-    id: "EVT001-001",
-    memberName: "Maria Silva",
-    memberEmail: "maria.silva@email.com",
-    eventTitle: "Encontro de Jovens 2024",
-    eventDate: "2024-11-15",
-    eventLocation: "Centro de Convenções",
-    ticketType: "Padrão",
-    price: 89.90,
-    paymentStatus: "Pago",
-    status: "Ativo",
-    issueDate: "2024-10-15",
-    qrCode: "QR123456789"
-  },
-  {
-    id: "EVT001-002", 
-    memberName: "João Santos",
-    memberEmail: "joao.santos@email.com",
-    eventTitle: "Encontro de Jovens 2024",
-    eventDate: "2024-11-15",
-    eventLocation: "Centro de Convenções",
-    ticketType: "VIP",
-    price: 129.90,
-    paymentStatus: "Pago",
-    status: "Ativo",
-    issueDate: "2024-10-20",
-    qrCode: "QR987654321"
-  },
-  {
-    id: "EVT002-001",
-    memberName: "Ana Costa",
-    memberEmail: "ana.costa@email.com",
-    eventTitle: "Retiro Espiritual",
-    eventDate: "2024-12-02",
-    eventLocation: "Sítio da Paz",
-    ticketType: "Padrão",
-    price: 120.00,
-    paymentStatus: "Pendente",
-    status: "Pendente",
-    issueDate: "2024-10-25",
-    qrCode: "QR555666777"
-  }
-];
+import { Search, Download, QrCode, Mail, Printer, Calendar, MapPin, User, Loader2 } from "lucide-react";
+import { toastSuccess, toastError } from '../lib/toast';
+import { apiClient } from '../lib/api-client';
 
 export function TicketsManagement() {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const filteredTickets = mockTickets.filter(ticket => {
-    const matchesSearch = ticket.memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEvent = selectedEvent === 'all' || ticket.eventTitle === selectedEvent;
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
+  const loadTickets = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getTickets();
+      setTickets(data);
+    } catch (error: any) {
+      toastError('Erro ao carregar tickets');
+      console.error('Error loading tickets:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredTickets = tickets.filter(ticket => {
+    const memberName = ticket.person?.name || '';
+    const memberEmail = ticket.person?.email || '';
+    const eventTitle = ticket.event?.title || '';
+
+    const matchesSearch = memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesEvent = selectedEvent === 'all' || eventTitle === selectedEvent;
     const matchesStatus = selectedStatus === 'all' || ticket.status === selectedStatus;
     return matchesSearch && matchesEvent && matchesStatus;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Ativo': return 'bg-green-100 text-green-800';
-      case 'Pendente': return 'bg-yellow-100 text-yellow-800';
-      case 'Cancelado': return 'bg-red-100 text-red-800';
-      case 'Usado': return 'bg-blue-100 text-blue-800';
+      case 'ACTIVE': return 'bg-green-100 text-green-800';
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      case 'USED': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'Pago': return 'bg-green-100 text-green-800';
-      case 'Pendente': return 'bg-yellow-100 text-yellow-800';
-      case 'Cancelado': return 'bg-red-100 text-red-800';
+      case 'PAID': return 'bg-green-100 text-green-800';
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'ACTIVE': 'Ativo',
+      'PENDING': 'Pendente',
+      'CANCELLED': 'Cancelado',
+      'USED': 'Usado'
+    };
+    return labels[status] || status;
+  };
+
+  const getPaymentLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'PAID': 'Pago',
+      'PENDING': 'Pendente',
+      'CANCELLED': 'Cancelado'
+    };
+    return labels[status] || status;
   };
 
   const handlePreviewTicket = (ticket: any) => {
@@ -104,12 +102,11 @@ export function TicketsManagement() {
   };
 
   const handlePrintTicket = (ticketId: string) => {
-    // Mock print functionality
     console.log('Printing ticket:', ticketId);
     window.print();
   };
 
-  const events = [...new Set(mockTickets.map(ticket => ticket.eventTitle))];
+  const events = [...new Set(tickets.map(ticket => ticket.event?.title).filter(Boolean))];
 
   return (
     <div className="space-y-6">
@@ -169,72 +166,89 @@ export function TicketsManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID / Participante</TableHead>
-                <TableHead>Evento</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Pagamento</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTickets.map((ticket) => (
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID / Participante</TableHead>
+                  <TableHead>Evento</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Pagamento</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTickets.map((ticket) => {
+                  const memberName = ticket.person?.name || 'N/A';
+                  const memberEmail = ticket.person?.email || 'N/A';
+                  const eventTitle = ticket.event?.title || 'N/A';
+                  const eventDate = ticket.event?.startDate;
+                  const eventLocation = ticket.event?.location || 'N/A';
+                  const paymentStatus = ticket.invoice?.status || 'PENDING';
+
+                  return (
                 <TableRow key={ticket.id}>
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="text-blue-900 text-sm">{ticket.id}</div>
+                      <div className="text-blue-900 text-sm">{ticket.ticketNumber || ticket.id}</div>
                       <div className="flex items-center space-x-2">
                         <Avatar className="h-8 w-8 border border-blue-200">
-                          <AvatarImage src="" alt={ticket.memberName} />
+                          <AvatarImage src="" alt={memberName} />
                           <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
-                            {ticket.memberName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="text-sm">{ticket.memberName}</div>
-                          <div className="text-xs text-muted-foreground">{ticket.memberEmail}</div>
+                          <div className="text-sm">{memberName}</div>
+                          <div className="text-xs text-muted-foreground">{memberEmail}</div>
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="text-sm text-blue-900">{ticket.eventTitle}</div>
-                      <div className="text-xs text-muted-foreground flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(ticket.eventDate).toLocaleDateString('pt-BR')}
-                      </div>
+                      <div className="text-sm text-blue-900">{eventTitle}</div>
+                      {eventDate && (
+                        <div className="text-xs text-muted-foreground flex items-center">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date(eventDate).toLocaleDateString('pt-BR')}
+                        </div>
+                      )}
                       <div className="text-xs text-muted-foreground flex items-center">
                         <MapPin className="w-3 h-3 mr-1" />
-                        {ticket.eventLocation}
+                        {eventLocation}
                       </div>
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
                     <div className="space-y-1">
                       <Badge variant="outline" className="border-blue-200">
-                        {ticket.ticketType}
+                        {ticket.ticketType || 'Padrão'}
                       </Badge>
-                      <div className="text-sm text-blue-900">
-                        R$ {ticket.price.toFixed(2)}
-                      </div>
+                      {ticket.event?.price && (
+                        <div className="text-sm text-blue-900">
+                          R$ {ticket.event.price.toFixed(2)}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
-                  
+
                   <TableCell>
-                    <Badge className={getPaymentStatusColor(ticket.paymentStatus)}>
-                      {ticket.paymentStatus}
+                    <Badge className={getPaymentStatusColor(paymentStatus)}>
+                      {getPaymentLabel(paymentStatus)}
                     </Badge>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Badge className={getStatusColor(ticket.status)}>
-                      {ticket.status}
+                      {getStatusLabel(ticket.status)}
                     </Badge>
                   </TableCell>
                   
@@ -274,9 +288,11 @@ export function TicketsManagement() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+            })}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -290,7 +306,13 @@ export function TicketsManagement() {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedTicket && (
+          {selectedTicket && (() => {
+            const memberName = selectedTicket.person?.name || 'N/A';
+            const eventTitle = selectedTicket.event?.title || 'N/A';
+            const eventLocation = selectedTicket.event?.location || 'N/A';
+            const eventDate = selectedTicket.event?.startDate;
+
+            return (
             <div className="space-y-4">
               {/* Ticket Design */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-dashed border-blue-300">
@@ -300,46 +322,46 @@ export function TicketsManagement() {
                       <Calendar className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
-                  
+
                   <div>
-                    <h3 className="text-lg text-blue-900">{selectedTicket.eventTitle}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedTicket.eventLocation}</p>
+                    <h3 className="text-lg text-blue-900">{eventTitle}</h3>
+                    <p className="text-sm text-muted-foreground">{eventLocation}</p>
                   </div>
-                  
+
                   <div className="bg-white p-4 rounded-lg space-y-2">
                     <div className="flex items-center justify-center space-x-2">
                       <User className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm">{selectedTicket.memberName}</span>
+                      <span className="text-sm">{memberName}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">ID: {selectedTicket.id}</div>
+                    <div className="text-xs text-muted-foreground">ID: {selectedTicket.ticketNumber || selectedTicket.id}</div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(selectedTicket.eventDate).toLocaleDateString('pt-BR')}
+                      {eventDate ? new Date(eventDate).toLocaleDateString('pt-BR') : 'N/A'}
                     </div>
                   </div>
-                  
+
                   {/* Mock QR Code */}
                   <div className="flex justify-center">
                     <div className="w-24 h-24 bg-white border-2 border-blue-200 rounded flex items-center justify-center">
                       <QrCode className="w-16 h-16 text-blue-600" />
                     </div>
                   </div>
-                  
+
                   <div className="text-xs text-muted-foreground">
                     Apresente este QR Code na entrada do evento
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleSendTicket(selectedTicket.id)}
                   className="flex-1 border-blue-200 hover:bg-blue-50"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Enviar por Email
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => handlePrintTicket(selectedTicket.id)}
                   className="flex-1 border-blue-200 hover:bg-blue-50"
@@ -349,7 +371,8 @@ export function TicketsManagement() {
                 </Button>
               </div>
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

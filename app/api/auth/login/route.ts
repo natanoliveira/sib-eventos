@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { generateToken } from '@/lib/auth';
+import { errorResponse } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
+import { withRateLimit, loginLimiter } from '@/lib/rate-limit';
 
-export async function POST(request: NextRequest) {
+async function loginHandler(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -17,9 +20,17 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        userPermissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
     });
 
     if (!user || !user.password) {
+      logger.warn('Tentativa de login com credenciais inválidas', { email });
       return NextResponse.json(
         { error: 'Credenciais inválidas' },
         { status: 401 }
@@ -29,13 +40,22 @@ export async function POST(request: NextRequest) {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      logger.warn('Tentativa de login com senha incorreta', { email });
       return NextResponse.json(
         { error: 'Credenciais inválidas' },
         { status: 401 }
       );
     }
 
+    // Criar mapa de permissions para facilitar verificação no frontend
+    const permissions: Record<string, boolean> = {};
+    user.userPermissions.forEach((up) => {
+      permissions[up.permission.code] = true;
+    });
+
     const token = generateToken(user.id);
+
+    logger.info('Login realizado com sucesso', { userId: user.id, email });
 
     return NextResponse.json({
       token,
@@ -45,13 +65,13 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role,
         image: user.image,
+        permissions,
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Erro ao fazer login' },
-      { status: 500 }
-    );
+    return errorResponse('Erro ao fazer login', 500, error);
   }
 }
+
+// Aplicar rate limiting: 5 tentativas a cada 15 minutos
+export const POST = withRateLimit(loginLimiter, loginHandler);

@@ -101,6 +101,36 @@ class ApiClient {
     })
   }
 
+  // Users endpoints
+  async getUsers(params?: { search?: string; role?: string; status?: string }) {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
+    return this.request<any[]>(`/users${query}`)
+  }
+
+  async getUser(id: string) {
+    return this.request<any>(`/users/${id}`)
+  }
+
+  async createUser(data: any) {
+    return this.request<any>('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateUser(id: string, data: any) {
+    return this.request<any>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(id: string) {
+    return this.request<{ message: string }>(`/users/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
   // Members endpoints
   async getMembers(params?: { search?: string; role?: string }) {
     const query = params ? `?${new URLSearchParams(params).toString()}` : ''

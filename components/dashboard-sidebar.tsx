@@ -24,7 +24,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', icon: Home, label: 'Dashboard' },
-  { id: 'members', icon: Users, label: 'Membros' },
+  { id: 'members', icon: Users, label: 'Pessoas' },
   { id: 'events', icon: Calendar, label: 'Eventos' },
   { id: 'registrations', icon: UserCheck, label: 'Inscrições' },
   { id: 'invoices', icon: FileText, label: 'Faturas' },

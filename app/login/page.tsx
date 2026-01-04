@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
 import { LoginForm } from '@/components/login-form';
 import { apiClient } from '@/lib/api-client';
 
@@ -28,9 +27,9 @@ export default function LoginPage() {
     type: 'email' | 'google',
     credentials?: { email: string; password: string }
   ) => {
+    // Google OAuth foi removido - usando apenas autenticação JWT
     if (type === 'google') {
-      await signIn('google', { callbackUrl: '/dashboard' });
-      return;
+      throw new Error('Login com Google temporariamente desabilitado');
     }
 
     if (!credentials?.email || !credentials.password) {
