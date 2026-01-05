@@ -39,3 +39,8 @@ Retirar todos os mocks de registros de listagems e configurações implantados n
 -   Em POST /api/auth/register validar força da senha e verificar/validar e-mail (tenho função no arquivo /lib/utils.ts validateEmail). O e-mail pode criar uma rota para verificar um ping se o e-mail existe de fato;
 -   Retire a redundância de next-auth 4.24.11 + JWT custom (redundância?). Verifique a melhor decisão para o projeto;
 -   Faça melhorias no front com Lazy Loading, Memoization, Virtualization, API Response Caching;
+
+#### Etapa 10
+
+-   Faça testes no módulo de membros no dashboard com jest e react testing library;
+-   Faça testes no módulo de eventos no dashboard com jest e react testing library;
