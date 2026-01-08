@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2 } from "lucide-react";
 import { toastSuccess, toastError } from '../lib/toast';
 import { apiClient } from '../lib/api-client';
+import { formatCurrencyBr } from '@/lib/utils';
 
 export function PaymentsManagement() {
   const [payments, setPayments] = useState<any[]>([]);
@@ -52,19 +53,45 @@ export function PaymentsManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Aprovado': return 'bg-green-100 text-green-800';
-      case 'Pendente': return 'bg-yellow-100 text-yellow-800';
-      case 'Recusado': return 'bg-red-100 text-red-800';
-      case 'Cancelado': return 'bg-gray-100 text-gray-800';
+      case 'PAID': return 'bg-green-100 text-green-800';
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'PROCESSING': return 'bg-blue-100 text-blue-800';
+      case 'FAILED': return 'bg-red-100 text-red-800';
+      case 'REFUNDED': return 'bg-purple-100 text-purple-800';
+      case 'CANCELLED': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'PAID': return 'Pago';
+      case 'PENDING': return 'Pendente';
+      case 'PROCESSING': return 'Processando';
+      case 'FAILED': return 'Falhou';
+      case 'REFUNDED': return 'Reembolsado';
+      case 'CANCELLED': return 'Cancelado';
+      default: return status;
     }
   };
 
   const getMethodIcon = (method: string) => {
     switch (method) {
       case 'PIX': return <Zap className="w-4 h-4" />;
-      case 'Cartão de Crédito': return <CreditCard className="w-4 h-4" />;
+      case 'CREDIT_CARD': return <CreditCard className="w-4 h-4" />;
+      case 'DEBIT_CARD': return <CreditCard className="w-4 h-4" />;
       default: return <DollarSign className="w-4 h-4" />;
+    }
+  };
+
+  const getMethodLabel = (method: string) => {
+    switch (method) {
+      case 'PIX': return 'PIX';
+      case 'CREDIT_CARD': return 'Cartão de Crédito';
+      case 'DEBIT_CARD': return 'Cartão de Débito';
+      case 'BANK_TRANSFER': return 'Transferência';
+      case 'CASH': return 'Dinheiro';
+      default: return method;
     }
   };
 
@@ -80,7 +107,7 @@ export function PaymentsManagement() {
 
   const totalRevenue = payments
     .filter(p => p.status === 'PAID')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
   const approvedCount = payments.filter(p => p.status === 'PAID').length;
   const pendingCount = payments.filter(p => p.status === 'PENDING').length;
@@ -103,7 +130,7 @@ export function PaymentsManagement() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl text-blue-900">R$ {totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl text-blue-900">R$ {formatCurrencyBr(totalRevenue)}</div>
           </CardContent>
         </Card>
 
@@ -157,10 +184,12 @@ export function PaymentsManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="Aprovado">Aprovado</SelectItem>
-                <SelectItem value="Pendente">Pendente</SelectItem>
-                <SelectItem value="Recusado">Recusado</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
+                <SelectItem value="PAID">Pago</SelectItem>
+                <SelectItem value="PENDING">Pendente</SelectItem>
+                <SelectItem value="PROCESSING">Processando</SelectItem>
+                <SelectItem value="FAILED">Falhou</SelectItem>
+                <SelectItem value="REFUNDED">Reembolsado</SelectItem>
+                <SelectItem value="CANCELLED">Cancelado</SelectItem>
               </SelectContent>
             </Select>
             <Select value={selectedMethod} onValueChange={setSelectedMethod}>
@@ -170,8 +199,10 @@ export function PaymentsManagement() {
               <SelectContent>
                 <SelectItem value="all">Todos os Métodos</SelectItem>
                 <SelectItem value="PIX">PIX</SelectItem>
-                <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                <SelectItem value="Transferência">Transferência</SelectItem>
+                <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                <SelectItem value="DEBIT_CARD">Cartão de Débito</SelectItem>
+                <SelectItem value="BANK_TRANSFER">Transferência</SelectItem>
+                <SelectItem value="CASH">Dinheiro</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -211,79 +242,87 @@ export function PaymentsManagement() {
                   const eventTitle = payment.installment?.invoice?.event?.title || 'N/A';
 
                   return (
-                <TableRow key={payment.id}>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-blue-900 text-sm">{payment.id}</div>
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="h-8 w-8 border border-blue-200">
-                          <AvatarImage src="" alt={memberName} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
-                            {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-sm">{memberName}</div>
-                          <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-blue-900 text-sm">{payment.paymentNumber || payment.id}</div>
+                          <div className="flex items-center space-x-2">
+                            <Avatar className="h-8 w-8 border border-blue-200">
+                              <AvatarImage src="" alt={memberName} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                                {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-sm">{memberName}</div>
+                              <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </TableCell>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="text-sm text-blue-900">{eventTitle}</div>
-                  </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-blue-900">{eventTitle}</div>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="text-blue-900">
-                      R$ {payment.amount.toFixed(2)}
-                    </div>
-                  </TableCell>
+                      <TableCell>
+                        <div className="text-blue-900">
+                          R$ {formatCurrencyBr(payment.amount)}
+                        </div>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      {getMethodIcon(payment.method)}
-                      <span className="text-sm">{payment.method}</span>
-                    </div>
-                  </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          {getMethodIcon(payment.method)}
+                          <span className="text-sm">{getMethodLabel(payment.method)}</span>
+                        </div>
+                      </TableCell>
 
-                  <TableCell>
-                    <Badge className={getStatusColor(payment.status)}>
-                      {payment.status}
-                    </Badge>
-                  </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(payment.status)}>
+                          {getStatusLabel(payment.status)}
+                        </Badge>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="text-sm">
-                      {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 hover:bg-blue-50"
-                        onClick={() => handleViewDetails(payment)}
-                      >
-                        <FileText className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      {payment.status === 'Aprovado' && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 hover:bg-red-50"
-                          onClick={() => handleRefundPayment(payment.id)}
-                        >
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                      <TableCell>
+                        <div className="text-sm">
+                          {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-blue-50"
+                            onClick={() => handleViewDetails(payment)}
+                          >
+                            <FileText className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          {payment.status === 'PAID' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-red-50"
+                              onClick={() => handleRefundPayment(payment.id)}
+                            >
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
+
+                {filteredPayments.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Nenhum pagamento encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -299,86 +338,86 @@ export function PaymentsManagement() {
               Informações completas da transação
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedPayment && (() => {
             const memberName = selectedPayment.installment?.invoice?.person?.name || 'N/A';
             const memberEmail = selectedPayment.installment?.invoice?.person?.email || 'N/A';
             const eventTitle = selectedPayment.installment?.invoice?.event?.title || 'N/A';
 
             return (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">ID do Pagamento</label>
-                  <div className="text-blue-900">{selectedPayment.id}</div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Status</label>
-                  <Badge className={getStatusColor(selectedPayment.status)}>
-                    {selectedPayment.status}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Participante</label>
-                <div className="flex items-center space-x-2">
-                  <Avatar className="h-10 w-10 border border-blue-200">
-                    <AvatarImage src="" alt={memberName} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
-                      {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div>{memberName}</div>
-                    <div className="text-sm text-muted-foreground">{memberEmail}</div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">ID do Pagamento</label>
+                    <div className="text-blue-900">{selectedPayment.id}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Status</label>
+                    <Badge className={getStatusColor(selectedPayment.status)}>
+                      {getStatusLabel(selectedPayment.status)}
+                    </Badge>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Evento</label>
-                  <div className="text-blue-900">{eventTitle}</div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Valor</label>
-                  <div className="text-blue-900">R$ {selectedPayment.amount.toFixed(2)}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Método de Pagamento</label>
+                  <label className="text-sm text-muted-foreground">Participante</label>
                   <div className="flex items-center space-x-2">
-                    {getMethodIcon(selectedPayment.method)}
-                    <span>{selectedPayment.method}</span>
+                    <Avatar className="h-10 w-10 border border-blue-200">
+                      <AvatarImage src="" alt={memberName} />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                        {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div>{memberName}</div>
+                      <div className="text-sm text-muted-foreground">{memberEmail}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Data do Pagamento</label>
-                  <div>{selectedPayment.paidAt ? new Date(selectedPayment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}</div>
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">ID da Transação Stripe</label>
-                <div className="bg-muted p-2 rounded text-sm font-mono">{selectedPayment.stripePaymentIntentId || selectedPayment.stripeChargeId || 'N/A'}</div>
-              </div>
-              
-              {selectedPayment.status === 'Aprovado' && (
-                <div className="pt-4 border-t">
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleRefundPayment(selectedPayment.id)}
-                    className="w-full border-red-200 text-red-600 hover:bg-red-50"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Processar Estorno
-                  </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Evento</label>
+                    <div className="text-blue-900">{eventTitle}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Valor</label>
+                    <div className="text-blue-900">R$ {formatCurrencyBr(selectedPayment.amount)}</div>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Método de Pagamento</label>
+                    <div className="flex items-center space-x-2">
+                      {getMethodIcon(selectedPayment.method)}
+                      <span>{getMethodLabel(selectedPayment.method)}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Data do Pagamento</label>
+                    <div>{selectedPayment.paidAt ? new Date(selectedPayment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">ID da Transação Stripe</label>
+                  <div className="bg-muted p-2 rounded text-sm font-mono">{selectedPayment.stripePaymentIntentId || selectedPayment.stripeChargeId || 'N/A'}</div>
+                </div>
+
+                {selectedPayment.status === 'PAID' && (
+                  <div className="pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRefundPayment(selectedPayment.id)}
+                      className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Processar Estorno
+                    </Button>
+                  </div>
+                )}
+              </div>
             );
           })()}
         </DialogContent>

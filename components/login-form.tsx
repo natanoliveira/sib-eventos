@@ -146,7 +146,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={isLoading}
             >
               {isLoading ? 'Entrando...' : 'Entrar'}

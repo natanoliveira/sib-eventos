@@ -5,6 +5,9 @@ import { requireAuth } from '@/lib/auth-utils';
 export const GET = requireAuth(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
+    console.log();
+    console.log(searchParams);
+    console.log();
     const personId = searchParams.get('personId');
     const eventId = searchParams.get('eventId');
     const status = searchParams.get('status');

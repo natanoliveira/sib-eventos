@@ -207,7 +207,7 @@ export function UsersManagement() {
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <UserPlus className="w-4 h-4 mr-2" />
               Novo Usuário
             </Button>
@@ -287,7 +287,7 @@ export function UsersManagement() {
               <Button
                 onClick={handleAddUser}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 {isSubmitting ? 'Criando...' : 'Criar Usuário'}
               </Button>
@@ -448,7 +448,7 @@ export function UsersManagement() {
             <Button
               onClick={handleUpdateUser}
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
             </Button>

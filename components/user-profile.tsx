@@ -315,7 +315,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                   <Button 
                     type="submit" 
                     disabled={updating}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {updating ? 'Salvando...' : 'Salvar Alterações'}
                   </Button>
@@ -381,7 +381,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                   <Button 
                     type="submit" 
                     disabled={updating}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {updating ? 'Alterando...' : 'Alterar Senha'}
                   </Button>

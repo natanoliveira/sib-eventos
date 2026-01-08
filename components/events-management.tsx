@@ -14,6 +14,7 @@ import { Progress } from "./ui/progress";
 import { Calendar, Plus, Edit2, Trash2, Users, MapPin, DollarSign, Loader2 } from "lucide-react";
 import { apiClient } from '../lib/api-client';
 import { toastSuccess, toastError } from '../lib/toast';
+import { formatCurrencyBr } from '@/lib/utils';
 
 export function EventsManagement() {
   const [events, setEvents] = useState<any[]>([]);
@@ -203,7 +204,7 @@ export function EventsManagement() {
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700" disabled={isSubmitting}>
+            <Button className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
               <Plus className="w-4 h-4 mr-2" />
               Novo Evento
             </Button>
@@ -316,7 +317,7 @@ export function EventsManagement() {
               <Button
                 onClick={handleAddEvent}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {isSubmitting ? 'Salvando...' : 'Criar Evento'}
@@ -390,7 +391,7 @@ export function EventsManagement() {
                   </div>
                   <div className="flex items-center text-muted-foreground">
                     <DollarSign className="w-4 h-4 mr-2" />
-                    R$ {event.price.toFixed(2)}
+                    R$ {formatCurrencyBr(event.price)}
                   </div>
                 </div>
 
@@ -554,7 +555,7 @@ export function EventsManagement() {
             <Button
               onClick={handleUpdateEvent}
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}

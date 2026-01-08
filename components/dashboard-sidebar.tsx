@@ -69,7 +69,7 @@ export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: Si
         </div>
 
         <div className="p-4">
-          <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 mb-6">
+          <Button className="w-full bg-blue-600 hover:bg-blue-700 mb-6">
             <Plus className="w-4 h-4 mr-2" />
             Novo Evento
           </Button>
@@ -114,7 +114,7 @@ export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: Si
         </div>
 
         <div className="p-4">
-          <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 mb-6">
+          <Button className="w-full bg-blue-600 hover:bg-blue-700 mb-6">
             <Plus className="w-4 h-4 mr-2" />
             Novo Evento
           </Button>

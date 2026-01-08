@@ -10,7 +10,7 @@ export const POST = requireAuth(
   ) => {
     try {
       const body = await request.json();
-      const { amount, method, stripePaymentIntentId, stripeChargeId, stripeCustomerId } = body;
+      const { amount, method, transactionId, stripePaymentIntentId, stripeChargeId, stripeCustomerId } = body;
 
       // Buscar parcela
       const installment = await prisma.installment.findUnique({
@@ -53,6 +53,7 @@ export const POST = requireAuth(
           method: method || 'PIX',
           status: 'PAID',
           paidAt: new Date(),
+          transactionId,
           stripePaymentIntentId,
           stripeChargeId,
           stripeCustomerId,

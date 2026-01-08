@@ -40,13 +40,13 @@ export function TicketsManagement() {
   };
 
   const filteredTickets = tickets.filter(ticket => {
-    const memberName = ticket.person?.name || '';
-    const memberEmail = ticket.person?.email || '';
-    const eventTitle = ticket.event?.title || '';
+    const memberName = ticket.invoice.person?.name || '';
+    const memberEmail = ticket.invoice.person?.email || '';
+    const eventTitle = ticket.invoice.event?.title || '';
 
     const matchesSearch = memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+      memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesEvent = selectedEvent === 'all' || eventTitle === selectedEvent;
     const matchesStatus = selectedStatus === 'all' || ticket.status === selectedStatus;
     return matchesSearch && matchesEvent && matchesStatus;
@@ -192,106 +192,106 @@ export function TicketsManagement() {
                   const paymentStatus = ticket.invoice?.status || 'PENDING';
 
                   return (
-                <TableRow key={ticket.id}>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-blue-900 text-sm">{ticket.ticketNumber || ticket.id}</div>
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="h-8 w-8 border border-blue-200">
-                          <AvatarImage src="" alt={memberName} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
-                            {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-sm">{memberName}</div>
-                          <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                    <TableRow key={ticket.id}>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-blue-900 text-sm">{ticket.ticketNumber || ticket.id}</div>
+                          <div className="flex items-center space-x-2">
+                            <Avatar className="h-8 w-8 border border-blue-200">
+                              <AvatarImage src="" alt={memberName} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                                {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-sm">{memberName}</div>
+                              <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </TableCell>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm text-blue-900">{eventTitle}</div>
-                      {eventDate && (
-                        <div className="text-xs text-muted-foreground flex items-center">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {new Date(eventDate).toLocaleDateString('pt-BR')}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-sm text-blue-900">{eventTitle}</div>
+                          {eventDate && (
+                            <div className="text-xs text-muted-foreground flex items-center">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {new Date(eventDate).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground flex items-center">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {eventLocation}
+                          </div>
                         </div>
-                      )}
-                      <div className="text-xs text-muted-foreground flex items-center">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {eventLocation}
-                      </div>
-                    </div>
-                  </TableCell>
+                      </TableCell>
 
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="border-blue-200">
-                        {ticket.ticketType || 'Padrão'}
-                      </Badge>
-                      {ticket.event?.price && (
-                        <div className="text-sm text-blue-900">
-                          R$ {ticket.event.price.toFixed(2)}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant="outline" className="border-blue-200">
+                            {ticket.ticketType || 'Padrão'}
+                          </Badge>
+                          {ticket.event?.price && (
+                            <div className="text-sm text-blue-900">
+                              R$ {ticket.event.price.toFixed(2)}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </TableCell>
+                      </TableCell>
 
-                  <TableCell>
-                    <Badge className={getPaymentStatusColor(paymentStatus)}>
-                      {getPaymentLabel(paymentStatus)}
-                    </Badge>
-                  </TableCell>
+                      <TableCell>
+                        <Badge className={getPaymentStatusColor(paymentStatus)}>
+                          {getPaymentLabel(paymentStatus)}
+                        </Badge>
+                      </TableCell>
 
-                  <TableCell>
-                    <Badge className={getStatusColor(ticket.status)}>
-                      {getStatusLabel(ticket.status)}
-                    </Badge>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 hover:bg-blue-50"
-                        onClick={() => handlePreviewTicket(ticket)}
-                      >
-                        <QrCode className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 hover:bg-blue-50"
-                        onClick={() => handleSendTicket(ticket.id)}
-                      >
-                        <Mail className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 hover:bg-blue-50"
-                        onClick={() => handlePrintTicket(ticket.id)}
-                      >
-                        <Printer className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 hover:bg-blue-50"
-                      >
-                        <Download className="h-4 w-4 text-blue-600" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            </TableBody>
-          </Table>
+                      <TableCell>
+                        <Badge className={getStatusColor(ticket.status)}>
+                          {getStatusLabel(ticket.status)}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-blue-50"
+                            onClick={() => handlePreviewTicket(ticket)}
+                          >
+                            <QrCode className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-blue-50"
+                            onClick={() => handleSendTicket(ticket.id)}
+                          >
+                            <Mail className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-blue-50"
+                            onClick={() => handlePrintTicket(ticket.id)}
+                          >
+                            <Printer className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-blue-50"
+                          >
+                            <Download className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
@@ -305,7 +305,7 @@ export function TicketsManagement() {
               Pré-visualização do passaporte do evento
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedTicket && (() => {
             const memberName = selectedTicket.person?.name || 'N/A';
             const eventTitle = selectedTicket.event?.title || 'N/A';
@@ -313,64 +313,64 @@ export function TicketsManagement() {
             const eventDate = selectedTicket.event?.startDate;
 
             return (
-            <div className="space-y-4">
-              {/* Ticket Design */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-dashed border-blue-300">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto flex items-center justify-center">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-blue-600" />
+              <div className="space-y-4">
+                {/* Ticket Design */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-dashed border-blue-300">
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto flex items-center justify-center">
+                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+                        <Calendar className="w-6 h-6 text-blue-600" />
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <h3 className="text-lg text-blue-900">{eventTitle}</h3>
-                    <p className="text-sm text-muted-foreground">{eventLocation}</p>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg space-y-2">
-                    <div className="flex items-center justify-center space-x-2">
-                      <User className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm">{memberName}</span>
+                    <div>
+                      <h3 className="text-lg text-blue-900">{eventTitle}</h3>
+                      <p className="text-sm text-muted-foreground">{eventLocation}</p>
                     </div>
-                    <div className="text-xs text-muted-foreground">ID: {selectedTicket.ticketNumber || selectedTicket.id}</div>
+
+                    <div className="bg-white p-4 rounded-lg space-y-2">
+                      <div className="flex items-center justify-center space-x-2">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm">{memberName}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">ID: {selectedTicket.ticketNumber || selectedTicket.id}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {eventDate ? new Date(eventDate).toLocaleDateString('pt-BR') : 'N/A'}
+                      </div>
+                    </div>
+
+                    {/* Mock QR Code */}
+                    <div className="flex justify-center">
+                      <div className="w-24 h-24 bg-white border-2 border-blue-200 rounded flex items-center justify-center">
+                        <QrCode className="w-16 h-16 text-blue-600" />
+                      </div>
+                    </div>
+
                     <div className="text-xs text-muted-foreground">
-                      {eventDate ? new Date(eventDate).toLocaleDateString('pt-BR') : 'N/A'}
+                      Apresente este QR Code na entrada do evento
                     </div>
-                  </div>
-
-                  {/* Mock QR Code */}
-                  <div className="flex justify-center">
-                    <div className="w-24 h-24 bg-white border-2 border-blue-200 rounded flex items-center justify-center">
-                      <QrCode className="w-16 h-16 text-blue-600" />
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    Apresente este QR Code na entrada do evento
                   </div>
                 </div>
-              </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSendTicket(selectedTicket.id)}
-                  className="flex-1 border-blue-200 hover:bg-blue-50"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Enviar por Email
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handlePrintTicket(selectedTicket.id)}
-                  className="flex-1 border-blue-200 hover:bg-blue-50"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Imprimir
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSendTicket(selectedTicket.id)}
+                    className="flex-1 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Enviar por Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePrintTicket(selectedTicket.id)}
+                    className="flex-1 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Imprimir
+                  </Button>
+                </div>
               </div>
-            </div>
             );
           })()}
         </DialogContent>

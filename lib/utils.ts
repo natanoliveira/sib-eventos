@@ -524,3 +524,16 @@ export function validatePasswordStrength(password: string): {
     strength,
   };
 }
+
+export function formatCurrencyBr(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "0,00";
+
+  const number = Number(value);
+
+  if (isNaN(number)) return "0,00";
+
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(number);
+}

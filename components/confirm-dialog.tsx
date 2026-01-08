@@ -48,7 +48,7 @@ export function ConfirmDialog({
             className={
               destructive 
                 ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                : "bg-blue-600 hover:bg-blue-700"
             }
           >
             {confirmText}

@@ -201,6 +201,7 @@ model Payment {
   method        PaymentMethod
   status        PaymentStatus @default(PENDING)
   transactionId String?
+  observation   String?
 
   // Stripe integration
   stripePaymentIntentId String? @unique

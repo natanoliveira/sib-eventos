@@ -16,6 +16,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { apiClient } from '../lib/api-client';
 
 export function MembersManagement() {
+  const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -41,6 +42,7 @@ export function MembersManagement() {
 
   const loadMembers = async () => {
     try {
+      setLoading(true);
       const params: any = {};
       if (searchTerm) params.search = searchTerm;
       if (selectedCategory !== 'all') params.category = selectedCategory;
@@ -50,30 +52,32 @@ export function MembersManagement() {
     } catch (error) {
       console.error('Error loading members:', error);
       // Fallback to mock data for demo
-      setMembers([
-        {
-          id: "1",
-          name: "Maria Silva",
-          email: "maria.silva@email.com",
-          phone: "(11) 99999-9999",
-          address: "São Paulo, SP",
-          category: "Jovem",
-          status: "ACTIVE",
-          joinDate: "2023-01-15",
-          events: 5
-        },
-        {
-          id: "2",
-          name: "João Santos",
-          email: "joao.santos@email.com",
-          phone: "(11) 88888-8888",
-          address: "Campinas, SP",
-          category: "Adulto",
-          status: "ACTIVE",
-          joinDate: "2022-06-20",
-          events: 8
-        }
-      ]);
+      // setMembers([
+      //   {
+      //     id: "1",
+      //     name: "Maria Silva",
+      //     email: "maria.silva@email.com",
+      //     phone: "(11) 99999-9999",
+      //     address: "São Paulo, SP",
+      //     category: "Jovem",
+      //     status: "ACTIVE",
+      //     joinDate: "2023-01-15",
+      //     events: 5
+      //   },
+      //   {
+      //     id: "2",
+      //     name: "João Santos",
+      //     email: "joao.santos@email.com",
+      //     phone: "(11) 88888-8888",
+      //     address: "Campinas, SP",
+      //     category: "Adulto",
+      //     status: "ACTIVE",
+      //     joinDate: "2022-06-20",
+      //     events: 8
+      //   }
+      // ]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -171,7 +175,7 @@ export function MembersManagement() {
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Novo Membro
             </Button>
@@ -268,7 +272,7 @@ export function MembersManagement() {
                 <Button
                   onClick={handleAddMember}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   Cadastrar Membro
                 </Button>
@@ -307,101 +311,107 @@ export function MembersManagement() {
       </Card>
 
       {/* Members Table */}
-      <Card className="border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
-          <CardDescription>
-            {filteredMembers.length} membros encontrados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Membro</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Eventos</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMembers.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10 border-2 border-blue-200">
-                        <AvatarImage src="" alt={member.name} />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
-                          {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="text-blue-900">{member.name}</div>
-                        <div className="text-sm text-muted-foreground flex items-center">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {member.address}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      ) : (
+        <Card className="border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
+            <CardDescription>
+              {filteredMembers.length} membros encontrados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Membro</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Eventos</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMembers.map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10 border-2 border-blue-200">
+                          <AvatarImage src="" alt={member.name} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                            {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="text-blue-900">{member.name}</div>
+                          <div className="text-sm text-muted-foreground flex items-center">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {member.address}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
+                    </TableCell>
 
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm flex items-center">
-                        <Mail className="w-3 h-3 mr-1 text-muted-foreground" />
-                        {member.email}
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm flex items-center">
+                          <Mail className="w-3 h-3 mr-1 text-muted-foreground" />
+                          {member.email}
+                        </div>
+                        <div className="text-sm flex items-center">
+                          <Phone className="w-3 h-3 mr-1 text-muted-foreground" />
+                          {member.phone}
+                        </div>
                       </div>
-                      <div className="text-sm flex items-center">
-                        <Phone className="w-3 h-3 mr-1 text-muted-foreground" />
-                        {member.phone}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge className={getCategoryColor(member.category)}>
+                        {member.category}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge className={getStatusColor(member.status)}>
+                        {getStatusLabel(member.status)}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="text-blue-900">
+                      {member.events} eventos
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-blue-50"
+                          onClick={() => handleEditMember(member)}
+                        >
+                          <Edit2 className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-red-50"
+                          onClick={() => handleDeleteMember(member)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge className={getCategoryColor(member.category)}>
-                      {member.category}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge className={getStatusColor(member.status)}>
-                      {getStatusLabel(member.status)}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="text-blue-900">
-                    {member.events} eventos
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-blue-50"
-                        onClick={() => handleEditMember(member)}
-                      >
-                        <Edit2 className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-red-50"
-                        onClick={() => handleDeleteMember(member)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit Member Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -497,7 +507,7 @@ export function MembersManagement() {
               <Button
                 onClick={handleUpdateMember}
                 disabled={isUpdating}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 Salvar Alterações
               </Button>

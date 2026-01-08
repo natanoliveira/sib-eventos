@@ -283,19 +283,39 @@ class ApiClient {
     return this.request<any[]>(`/installments${query}`)
   }
 
-  async payInstallment(id: string, stripePaymentIntentId: string, stripeChargeId: string) {
+  async payInstallment(
+    id: string,
+    method?: string,
+    transactionId?: string,
+    amount?: number,
+    stripePaymentIntentId?: string,
+    stripeChargeId?: string,
+    stripeCustomerId?: string
+  ) {
     return this.request<any>(`/installments/${id}/pay`, {
       method: 'POST',
-      body: JSON.stringify({ stripePaymentIntentId, stripeChargeId }),
+      body: JSON.stringify({
+        method,
+        transactionId,
+        amount,
+        stripePaymentIntentId,
+        stripeChargeId,
+        stripeCustomerId,
+      }),
     })
   }
 
   async markInstallmentAsPaid(id: string) {
     // Simplified version for manual marking
-    return this.payInstallment(id, 'manual', 'manual')
+    return this.payInstallment(id, 'CASH', 'Pagamento manual')
   }
 
   // Invoice endpoints
+  async getInvoices(params?: { personId?: string; eventId?: string; status?: string; search?: string }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<any[]>(`/invoices${query}`)
+  }
+
   async generateInvoice(data: {
     personId: string
     eventId: string

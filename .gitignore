@@ -53,6 +53,6 @@ yarn-error.log*
 .claude
 
 # Diversos
-diretrizes.md
-diretrizes_old.md
+/diretrizes.md
+/diretrizes_old.md
 /tmp
