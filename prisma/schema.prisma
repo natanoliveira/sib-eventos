@@ -121,6 +121,7 @@ model EventMembership {
   id              String             @id @default(cuid())
   personId        String
   eventId         String
+  userId          String?            // Referência lógica ao User (sem FK)
   createdByUserId String?
   status          RegistrationStatus @default(PENDING)
   registeredAt    DateTime           @default(now())
@@ -129,8 +130,10 @@ model EventMembership {
   event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdByUser User?  @relation("MembershipCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([personId, eventId])
+  @@index([personId])
+  @@index([eventId])
   @@index([createdByUserId])
+  @@index([userId])
 }
 
 model Ticket {

@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, UserStatus, EventStatus, RegistrationStatus, TicketStatus, PaymentMethod, PaymentStatus, InstallmentStatus, InvoiceStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { buildFakePeopleAndMemberships } from './seed-fake-data';
 
 const prisma = new PrismaClient();
 
@@ -254,6 +255,23 @@ async function main() {
 
   const allEvents = [retiroAnual, conferencia, cultoEspecial, workshopLideranca, acampamentoFamilias];
 
+  // 6. CRIACAO DE PESSOAS FICTICIAS E INSCRICOES
+  console.log('🧪 Criando 7.000 pessoas ficticias e inscricoes...');
+
+  const fakeSeed = buildFakePeopleAndMemberships({
+    count: 7000,
+    eventIds: allEvents.map((event) => event.id),
+    createdByUserId: admin.id,
+  });
+
+  await prisma.person.createMany({
+    data: fakeSeed.persons,
+  });
+
+  await prisma.eventMembership.createMany({
+    data: fakeSeed.memberships,
+  });
+
   // 6. CRIAÇÃO DE INSCRIÇÕES EM EVENTOS
   console.log('📝 Criando inscrições em eventos...');
 
@@ -448,9 +466,9 @@ async function main() {
   console.log('\n📊 Dados criados:');
   console.log(`   🔐 ${permissions.length} permissões`);
   console.log(`   👥 2 usuários (1 admin, 1 líder)`);
-  console.log(`   👤 ${persons.length} pessoas (membros)`);
+  console.log(`   👤 ${persons.length + fakeSeed.persons.length} pessoas (membros)`);
   console.log(`   📅 ${allEvents.length} eventos`);
-  console.log(`   📝 ${memberships.length} inscrições`);
+  console.log(`   📝 ${memberships.length + fakeSeed.memberships.length} inscrições`);
   console.log(`   💰 3 faturas (Invoice)`);
   console.log(`   📄 5 parcelas (Installment)`);
   console.log(`   💳 2 pagamentos (Payment)`);

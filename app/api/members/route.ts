@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth-utils';
 
-// GET /api/members - Listar pessoas/membros
+// GET /api/members - Listar pessoas/membros com paginação
 export const GET = requirePermission('members.view')(
   async (request: NextRequest) => {
     try {
@@ -10,6 +10,8 @@ export const GET = requirePermission('members.view')(
       const status = searchParams.get('status');
       const category = searchParams.get('category');
       const search = searchParams.get('search');
+      const page = parseInt(searchParams.get('page') || '1');
+      const limit = parseInt(searchParams.get('limit') || '10');
 
       const where: any = {};
       if (status) where.status = status;
@@ -22,14 +24,28 @@ export const GET = requirePermission('members.view')(
         ];
       }
 
+      // Contar total de registros
+      const total = await prisma.person.count({ where });
+
+      // Buscar dados paginados
       const persons = await prisma.person.findMany({
         where,
         orderBy: {
           createdAt: 'desc',
         },
+        skip: (page - 1) * limit,
+        take: limit,
       });
 
-      return NextResponse.json(persons);
+      const totalPages = Math.ceil(total / limit);
+
+      return NextResponse.json({
+        data: persons,
+        total,
+        page,
+        limit,
+        totalPages,
+      });
     } catch (error) {
       console.error('Error fetching persons:', error);
       return NextResponse.json(

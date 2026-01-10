@@ -51,7 +51,8 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Network error' }))
-      throw new Error(error.message || `HTTP ${response.status}`)
+      const messageResponse = error.message = error.error || error.message;
+      throw new Error(messageResponse || `HTTP ${response.status}`)
     }
 
     return response.json()
@@ -132,9 +133,9 @@ class ApiClient {
   }
 
   // Members endpoints
-  async getMembers(params?: { search?: string; role?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/members${query}`)
+  async getMembers(params?: { search?: string; role?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/members${query}`)
   }
 
   async getMember(id: string) {
@@ -162,9 +163,9 @@ class ApiClient {
   }
 
   // Events endpoints
-  async getEvents(params?: { status?: string; category?: string; search?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/events${query}`)
+  async getEvents(params?: { status?: string; category?: string; search?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/events${query}`)
   }
 
   async getEvent(id: string) {
@@ -333,15 +334,15 @@ class ApiClient {
   }
 
   // Event Registrations endpoints
-  async getEventRegistrations(params?: { eventId?: string; userId?: string; status?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/event-registrations${query}`)
+  async getEventRegistrations(params?: { eventId?: string; userId?: string; status?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/event-registrations${query}`)
   }
 
-  async registerMemberToEvent(userId: string, eventId: string) {
+  async registerMemberToEvent(persoId: string, userId: string, eventId: string) {
     return this.request<any>('/event-registrations', {
       method: 'POST',
-      body: JSON.stringify({ userId, eventId }),
+      body: JSON.stringify({ persoId, userId, eventId }),
     })
   }
 

@@ -50,7 +50,9 @@ Retirar todos os mocks de registros de listagems e configurações implantados n
 -   Exibir parcelas criadas independente da stripe, ou seja, olhar somente para Installment e Payment em installments-management.tsx. Checar o retorno do objeto e ajustar a exibição;
 -   Ajustar a listagem de pagamentos recuperando dados da entidade Payment;
 -   Criar exibição das faturas geradas no arquivo invoce-generator.txs;
--   Criar paginação (de 20 registros por página) nos componentes de <Table> nas exibições de parcelas, faturas, membros, pagamentos, eventos;
+-   Criar paginação (de 20 registros por página) nos componentes de nas exibições de parcelas, faturas, membros, pagamentos, eventos;
 -   Criar modal de pagamento de parcela avulso ao clicar em "Marcar como Pago";
 -   Criar um botão na linha de parcela para abertura de modal para exibir os pagamentos de uma parcela em installments-management.tsx;
--   Retirar leitura da stripe na listagem de Payment em payments-management.tsx;
+-   Retirar leitura da stripe na listagem de Payment em payments-management.tsx
+
+### Etapa 12

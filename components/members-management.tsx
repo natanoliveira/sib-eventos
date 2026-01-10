@@ -11,13 +11,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2 } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { ConfirmDialog } from "./confirm-dialog";
 import { apiClient } from '../lib/api-client';
 
 export function MembersManagement() {
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -35,58 +37,52 @@ export function MembersManagement() {
     notes: '',
     image: ''
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     loadMembers();
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, currentPage, itemsPerPage]);
 
   const loadMembers = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
       if (searchTerm) params.search = searchTerm;
       if (selectedCategory !== 'all') params.category = selectedCategory;
 
-      const data = await apiClient.getMembers(params);
-      setMembers(data);
+      const response = await apiClient.getMembers(params);
+      setMembers(response.data);
+      setTotalMembers(response.total);
+      setTotalPages(response.totalPages);
     } catch (error) {
       console.error('Error loading members:', error);
-      // Fallback to mock data for demo
-      // setMembers([
-      //   {
-      //     id: "1",
-      //     name: "Maria Silva",
-      //     email: "maria.silva@email.com",
-      //     phone: "(11) 99999-9999",
-      //     address: "São Paulo, SP",
-      //     category: "Jovem",
-      //     status: "ACTIVE",
-      //     joinDate: "2023-01-15",
-      //     events: 5
-      //   },
-      //   {
-      //     id: "2",
-      //     name: "João Santos",
-      //     email: "joao.santos@email.com",
-      //     phone: "(11) 88888-8888",
-      //     address: "Campinas, SP",
-      //     category: "Adulto",
-      //     status: "ACTIVE",
-      //     joinDate: "2022-06-20",
-      //     events: 8
-      //   }
-      // ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMembers = members.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || member.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Reset para página 1 quando filtros mudarem
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
+  // Cálculo de índices para exibição
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
 
   const handleAddMember = async () => {
     try {
@@ -138,11 +134,15 @@ export function MembersManagement() {
 
   const confirmDeleteMember = async () => {
     try {
+      setIsSubmitting(true);
       await apiClient.deleteMember(selectedMember.id);
       setSelectedMember(null);
       await loadMembers();
     } catch (error) {
       console.error('Error deleting member:', error);
+    } finally {
+      setIsSubmitting(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -310,108 +310,264 @@ export function MembersManagement() {
         </CardContent>
       </Card>
 
-      {/* Members Table */}
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      ) : (
-        <Card className="border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
-            <CardDescription>
-              {filteredMembers.length} membros encontrados
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Membro</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Eventos</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMembers.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10 border-2 border-blue-200">
-                          <AvatarImage src="" alt={member.name} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
-                            {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-blue-900">{member.name}</div>
-                          <div className="text-sm text-muted-foreground flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {member.address}
+      <Card className="border-blue-200">
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
+              <CardDescription>
+                {totalMembers} membros encontrados
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Itens por página:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : members.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhum membro encontrado
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Membro</TableHead>
+                      <TableHead>Contato</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Eventos</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-10 w-10 border-2 border-blue-200">
+                              <AvatarImage src="" alt={member.name} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                                {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-blue-900 font-medium">{member.name}</div>
+                              <div className="text-sm text-muted-foreground flex items-center">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {member.address}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="text-sm flex items-center">
+                              <Mail className="w-3 h-3 mr-1 text-muted-foreground" />
+                              {member.email}
+                            </div>
+                            <div className="text-sm flex items-center">
+                              <Phone className="w-3 h-3 mr-1 text-muted-foreground" />
+                              {member.phone}
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge className={getCategoryColor(member.category)}>
+                            {member.category}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge className={getStatusColor(member.status)}>
+                            {getStatusLabel(member.status)}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="text-blue-900">
+                          {member.events || 0} eventos
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-blue-50"
+                              onClick={() => handleEditMember(member)}
+                            >
+                              <Edit2 className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-red-50"
+                              onClick={() => handleDeleteMember(member)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {members.map((member) => (
+                  <Card key={member.id} className="border-blue-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-12 w-12 border-2 border-blue-200">
+                            <AvatarImage src="" alt={member.name} />
+                            <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                              {member.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="text-blue-900 font-medium">{member.name}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge className={getCategoryColor(member.category)}>
+                                {member.category}
+                              </Badge>
+                              <Badge className={getStatusColor(member.status)}>
+                                {getStatusLabel(member.status)}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </TableCell>
 
-                    <TableCell>
-                      <div className="space-y-1">
+                      <div className="space-y-2 mb-4">
                         <div className="text-sm flex items-center">
-                          <Mail className="w-3 h-3 mr-1 text-muted-foreground" />
-                          {member.email}
+                          <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
+                          <span className="break-all">{member.email}</span>
                         </div>
                         <div className="text-sm flex items-center">
-                          <Phone className="w-3 h-3 mr-1 text-muted-foreground" />
+                          <Phone className="w-4 h-4 mr-2 text-muted-foreground" />
                           {member.phone}
                         </div>
+                        <div className="text-sm flex items-center">
+                          <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
+                          {member.address}
+                        </div>
+                        <div className="text-sm text-blue-900 font-medium">
+                          {member.events || 0} eventos participados
+                        </div>
                       </div>
-                    </TableCell>
 
-                    <TableCell>
-                      <Badge className={getCategoryColor(member.category)}>
-                        {member.category}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge className={getStatusColor(member.status)}>
-                        {getStatusLabel(member.status)}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="text-blue-900">
-                      {member.events} eventos
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2 pt-4 border-t">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-blue-50"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
                           onClick={() => handleEditMember(member)}
                         >
-                          <Edit2 className="h-4 w-4 text-blue-600" />
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Editar
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-red-50"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
                           onClick={() => handleDeleteMember(member)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-600" />
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Mostrando {startIndex + 1} a {Math.min(endIndex, totalMembers)} de {totalMembers} membros
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="border-blue-200"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNumber;
+                        if (totalPages <= 5) {
+                          pageNumber = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNumber = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + i;
+                        } else {
+                          pageNumber = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={currentPage === pageNumber ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNumber)}
+                            className={currentPage === pageNumber ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200"}
+                          >
+                            {pageNumber}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="border-blue-200"
+                    >
+                      Próximo
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* Edit Member Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

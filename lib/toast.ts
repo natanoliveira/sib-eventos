@@ -6,6 +6,7 @@ interface ToastOptions {
   title?: string;
   description?: string;
   duration?: number;
+  closeButton?: boolean;
 }
 
 /**
@@ -19,35 +20,29 @@ export function toast(
   message: string,
   options?: ToastOptions
 ) {
-  const { title, description, duration = 4000 } = options || {};
+  const { title, description, duration = 6000, closeButton = true } = options || {};
+
+  const toastOptions = {
+    description: description || (title ? message : undefined),
+    duration,
+    closeButton,
+  };
 
   switch (type) {
     case 'success':
-      sonnerToast.success(title || message, {
-        description: description || (title ? message : undefined),
-        duration,
-      });
+      sonnerToast.success(title || message, toastOptions);
       break;
     case 'error':
-      sonnerToast.error(title || message, {
-        description: description || (title ? message : undefined),
-        duration,
-      });
+      sonnerToast.error(title || message, toastOptions);
       break;
     case 'warning':
-      sonnerToast.warning(title || message, {
-        description: description || (title ? message : undefined),
-        duration,
-      });
+      sonnerToast.warning(title || message, toastOptions);
       break;
     case 'info':
-      sonnerToast.info(title || message, {
-        description: description || (title ? message : undefined),
-        duration,
-      });
+      sonnerToast.info(title || message, toastOptions);
       break;
     default:
-      sonnerToast(message, { duration });
+      sonnerToast(message, { duration, closeButton });
   }
 }
 
