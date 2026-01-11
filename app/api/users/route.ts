@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
-import { hash } from 'bcrypt';
+import { hash } from 'bcryptjs';
 
 // GET /api/users - Listar usuários
 export const GET = requireAuth(

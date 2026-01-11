@@ -137,7 +137,7 @@ Sistema completo para gestão de eventos religiosos com autenticação, pagament
 -   **Prisma** - ORM
 -   **PostgreSQL** - Banco de dados
 -   **JWT** - Autenticação
--   **bcrypt** - Hash de senhas
+-   **bcryptjs** - Hash de senhas
 
 ### Pagamentos
 
