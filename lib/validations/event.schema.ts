@@ -37,9 +37,7 @@ const baseEventSchema = z.object({
       .number()
       .int('Capacidade deve ser um número inteiro')
       .positive('Capacidade deve ser positiva')
-      .max(10000, 'Capacidade máxima de 10.000 pessoas')
-      .optional()
-      .nullable(),
+      .max(10000, 'Capacidade máxima de 10.000 pessoas'),
     price: z
       .number()
       .nonnegative('Preço não pode ser negativo')
@@ -51,7 +49,7 @@ const baseEventSchema = z.object({
       .max(50, 'Categoria inválida')
       .trim(),
     status: z
-      .enum(['ACTIVE', 'CANCELLED', 'COMPLETED', 'DRAFT'])
+      .enum(['ACTIVE', 'CANCELLED', 'DRAFT', 'FULL', 'ENDED'])
       .default('ACTIVE'),
     imageUrl: z
       .string()
@@ -98,7 +96,7 @@ export const getEventsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(10),
   search: z.string().trim().optional(),
   category: z.string().optional(),
-  status: z.enum(['ACTIVE', 'CANCELLED', 'COMPLETED', 'DRAFT']).optional(),
+  status: z.enum(['ACTIVE', 'CANCELLED', 'DRAFT', 'FULL', 'ENDED']).optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
 });

@@ -16,7 +16,9 @@ export const GET = requireAuth(
         return validation.error;
       }
 
-      const { page, limit, search, status, invoiceId, personId } = validation.data;
+      const { search, status, invoiceId, personId } = validation.data;
+      const page = validation.data.page ?? 1;
+      const limit = validation.data.limit ?? 10;
 
       const where: any = {};
 

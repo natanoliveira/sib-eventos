@@ -24,7 +24,9 @@ async function getEventsHandler(request: NextRequest) {
       return validation.error;
     }
 
-    const { page, limit, search, category, status } = validation.data;
+    const { search, category, status } = validation.data;
+    const page = validation.data.page ?? 1;
+    const limit = validation.data.limit ?? 10;
 
     const where: any = { removed: false };
     if (status) where.status = status;
@@ -113,7 +115,7 @@ export const POST = requireAuth(
           startDate: new Date(startDate),
           endDate: endDate ? new Date(endDate) : null,
           location,
-          capacity: capacity || undefined,
+          capacity,
           price: price ?? 0,
           category: category || 'Geral',
           imageUrl: imageUrl || undefined,

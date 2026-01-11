@@ -25,7 +25,9 @@ async function getRegistrationsHandler(request: NextRequest) {
       return validation.error;
     }
 
-    const { page, limit, eventId, personId, status } = validation.data;
+    const { eventId, personId, status } = validation.data;
+    const page = validation.data.page ?? 1;
+    const limit = validation.data.limit ?? 10;
 
     const where: any = {};
     if (eventId) where.eventId = eventId;

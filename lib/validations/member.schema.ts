@@ -42,6 +42,7 @@ export const createMemberSchema = z.object({
     .string()
     .min(1, 'Categoria é obrigatória')
     .max(50, 'Categoria inválida'),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   notes: z
     .string()
     .max(500, 'Observações devem ter no máximo 500 caracteres')

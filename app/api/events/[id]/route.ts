@@ -140,7 +140,7 @@ export const PUT = requireAuth(
           ...(startDate !== undefined && { startDate: new Date(startDate) }),
           ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
           ...(location !== undefined && { location }),
-          ...(capacity !== undefined && { capacity }),
+          ...(capacity !== undefined && capacity !== null && { capacity }),
           ...(price !== undefined && { price }),
           ...(category !== undefined && { category }),
           ...(status !== undefined && { status }),

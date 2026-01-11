@@ -13,7 +13,9 @@ export const GET = requireAuth(async (request: NextRequest) => {
       return validation.error;
     }
 
-    const { page, limit, search, status, method, startDate, endDate } = validation.data;
+    const { search, status, method, startDate, endDate } = validation.data;
+    const page = validation.data.page ?? 1;
+    const limit = validation.data.limit ?? 10;
 
     // Build where clause for filtering via relationships
     const where: any = {};

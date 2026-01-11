@@ -107,7 +107,7 @@ export function MembersManagement() {
   const handleEditMember = (member: any) => {
     const parsedCategory = parseMemberCategoryInput(member.category);
     const categoryValue =
-      parsedCategory.isValid && parsedCategory.value !== undefined
+      parsedCategory.isValid && parsedCategory.value !== undefined && parsedCategory.value !== null
         ? parsedCategory.value
         : '';
 
