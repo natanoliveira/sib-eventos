@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/tickets/[id] - Obter ticket específico
-export const GET = requirePermission('tickets.view')(
+export const GET = requireAuth(
   async (_: NextRequest, { params }: { params: { id: string } }) => {
     try {
       const ticket = await prisma.ticket.findUnique({
@@ -64,7 +64,7 @@ export const GET = requirePermission('tickets.view')(
 );
 
 // PUT /api/tickets/[id] - Atualizar ticket
-export const PUT = requirePermission('tickets.create')(
+export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: { id: string } }) => {
     try {
       const body = await request.json();
@@ -118,7 +118,7 @@ export const PUT = requirePermission('tickets.create')(
 );
 
 // DELETE /api/tickets/[id] - Cancelar ticket
-export const DELETE = requirePermission('tickets.cancel')(
+export const DELETE = requireAuth(
   async (_: NextRequest, { params }: { params: { id: string } }) => {
     try {
       // Marcar como cancelado ao invés de deletar

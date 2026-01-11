@@ -14,6 +14,7 @@ import { Textarea } from "./ui/textarea";
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { ConfirmDialog } from "./confirm-dialog";
 import { apiClient } from '../lib/api-client';
+import { MEMBER_CATEGORY_OPTIONS } from '../lib/member-categories';
 
 export function MembersManagement() {
   const [loading, setLoading] = useState(false);
@@ -148,9 +149,13 @@ export function MembersManagement() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'Líder': return 'bg-indigo-100 text-indigo-800';
-      case 'Adulto': return 'bg-blue-100 text-blue-800';
-      case 'Jovem': return 'bg-green-100 text-green-800';
+      case 'Membro Ativo': return 'bg-green-100 text-green-800';
+      case 'Membro Regular': return 'bg-blue-100 text-blue-800';
+      case 'Membro Novo': return 'bg-amber-100 text-amber-800';
+      case 'Membro Visitante': return 'bg-purple-100 text-purple-800';
+      case 'Visitante': return 'bg-gray-100 text-gray-800';
+      case 'Adulto': return 'bg-sky-100 text-sky-800';
+      case 'Jovem': return 'bg-teal-100 text-teal-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -208,9 +213,11 @@ export function MembersManagement() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Jovem">Jovem</SelectItem>
-                      <SelectItem value="Adulto">Adulto</SelectItem>
-                      <SelectItem value="Líder">Líder</SelectItem>
+                      {MEMBER_CATEGORY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.label}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -301,15 +308,18 @@ export function MembersManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Categorias</SelectItem>
-                <SelectItem value="Jovem">Jovem</SelectItem>
-                <SelectItem value="Adulto">Adulto</SelectItem>
-                <SelectItem value="Líder">Líder</SelectItem>
+                {MEMBER_CATEGORY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.label}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
+      {/* Listagem de Pessoas */}
       <Card className="border-blue-200">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -599,9 +609,11 @@ export function MembersManagement() {
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Jovem">Jovem</SelectItem>
-                    <SelectItem value="Adulto">Adulto</SelectItem>
-                    <SelectItem value="Líder">Líder</SelectItem>
+                    {MEMBER_CATEGORY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.label}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -654,7 +666,7 @@ export function MembersManagement() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isUpdating}>
               Cancelar
             </Button>
-            {isSubmitting ? (
+            {isUpdating ? (
               <Button disabled>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando

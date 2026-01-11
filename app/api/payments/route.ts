@@ -54,6 +54,7 @@ export const GET = requireAuth(async (request: NextRequest) => {
           },
         },
       },
+      relationLoadStrategy: 'join',
       orderBy: {
         createdAt: 'desc',
       },

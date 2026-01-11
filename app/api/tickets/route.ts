@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/tickets - Listar tickets
-export const GET = requirePermission('tickets.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -57,6 +57,7 @@ export const GET = requirePermission('tickets.view')(
             },
           },
         },
+        relationLoadStrategy: 'join',
         orderBy: {
           createdAt: 'desc',
         },
@@ -75,7 +76,7 @@ export const GET = requirePermission('tickets.view')(
 
 // POST /api/tickets - Criar ticket não é mais usado diretamente
 // Tickets agora são criados via /api/invoices/generate
-export const POST = requirePermission('tickets.create')(
+export const POST = requireAuth(
   async (_: NextRequest) => {
     return NextResponse.json(
       {

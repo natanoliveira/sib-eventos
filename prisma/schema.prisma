@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -70,7 +71,7 @@ model Person {
   email    String     @unique
   phone    String?
   address  String?
-  category String?
+  category MemberCategory?
   status   UserStatus @default(ACTIVE)
   joinDate DateTime   @default(now())
   notes    String?
@@ -263,6 +264,16 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum MemberCategory {
+  VISITANTE        @map("Visitante")
+  MEMBRO_NOVO      @map("Membro Novo")
+  ADULTO           @map("Adulto")
+  MEMBRO_REGULAR   @map("Membro Regular")
+  MEMBRO_ATIVO     @map("Membro Ativo")
+  MEMBRO_VISITANTE @map("Membro Visitante")
+  JOVEM            @map("Jovem")
 }
 
 enum EventStatus {

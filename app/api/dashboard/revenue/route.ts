@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
-export const GET = requirePermission('dashboard.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);

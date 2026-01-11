@@ -1,4 +1,4 @@
-import { Prisma, RegistrationStatus, UserStatus } from '@prisma/client';
+import { MemberCategory, Prisma, RegistrationStatus, UserStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
 const FIRST_NAMES = [
@@ -47,7 +47,15 @@ const LAST_NAMES = [
   'Vieira',
 ];
 
-const CATEGORIES = ['Membro Ativo', 'Membro Novo', 'Visitante', 'Membro Regular'];
+const CATEGORIES: MemberCategory[] = [
+  MemberCategory.MEMBRO_ATIVO,
+  MemberCategory.MEMBRO_NOVO,
+  MemberCategory.VISITANTE,
+  MemberCategory.MEMBRO_REGULAR,
+  MemberCategory.MEMBRO_VISITANTE,
+  MemberCategory.ADULTO,
+  MemberCategory.JOVEM,
+];
 
 const STREETS = [
   'Rua das Flores',

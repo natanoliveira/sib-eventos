@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, getUserFromRequest } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 import { errorResponse } from '@/lib/api-response';
 import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 
@@ -56,6 +56,7 @@ async function getRegistrationsHandler(request: NextRequest) {
           },
         },
       },
+      relationLoadStrategy: 'join',
       orderBy: {
         registeredAt: 'desc',
       },
@@ -79,7 +80,7 @@ async function getRegistrationsHandler(request: NextRequest) {
   }
 }
 
-export const GET = withRateLimit(apiLimiter, getRegistrationsHandler);
+export const GET = requireAuth(withRateLimit(apiLimiter, getRegistrationsHandler));
 
 /**
  * POST /api/event-registrations - Criar nova inscrição

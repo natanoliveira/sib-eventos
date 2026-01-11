@@ -57,7 +57,7 @@ async function loginHandler(request: NextRequest) {
 
     logger.info('Login realizado com sucesso', { userId: user.id, email });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       token,
       user: {
         id: user.id,
@@ -68,6 +68,15 @@ async function loginHandler(request: NextRequest) {
         permissions,
       },
     });
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     return errorResponse('Erro ao fazer login', 500, error);
   }
