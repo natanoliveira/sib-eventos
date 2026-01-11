@@ -26,10 +26,7 @@ export const GET = requireAuth(
       if (parsedCategory.value !== undefined && parsedCategory.value !== null) {
         where.category = parsedCategory.value;
       }
-
-      console.log();
-      console.log(where);
-      console.log();
+      
       if (search) {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
