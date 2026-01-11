@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/dashboard/stats - Obter estatísticas do dashboard
-export const GET = requirePermission('dashboard.view')(
+export const GET = requireAuth(
   async (_request: NextRequest) => {
     try {
       // Contar total de pessoas

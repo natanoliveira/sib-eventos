@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/installments - Listar parcelas
-export const GET = requirePermission('dashboard.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -11,6 +11,8 @@ export const GET = requirePermission('dashboard.view')(
       const status = searchParams.get('status');
       const personId = searchParams.get('personId');
       const eventId = searchParams.get('eventId');
+      const page = parseInt(searchParams.get('page') || '1');
+      const limit = parseInt(searchParams.get('limit') || '10');
 
       const where: any = {};
 
@@ -30,6 +32,10 @@ export const GET = requirePermission('dashboard.view')(
         };
       }
 
+      // Contar total de registros
+      const total = await prisma.installment.count({ where });
+
+      // Buscar dados paginados
       const installments = await prisma.installment.findMany({
         where,
         include: {
@@ -61,12 +67,23 @@ export const GET = requirePermission('dashboard.view')(
             },
           },
         },
+        relationLoadStrategy: 'join',
         orderBy: {
           dueDate: 'asc',
         },
+        skip: (page - 1) * limit,
+        take: limit,
       });
 
-      return NextResponse.json(installments);
+      const totalPages = Math.ceil(total / limit);
+
+      return NextResponse.json({
+        data: installments,
+        total,
+        page,
+        limit,
+        totalPages,
+      });
     } catch (error) {
       console.error('Error fetching installments:', error);
       return NextResponse.json(

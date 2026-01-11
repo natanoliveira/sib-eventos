@@ -107,7 +107,7 @@ export const PUT = requireAuth(updateRegistrationHandler);
  * DELETE /api/event-registrations/[id] - Deletar inscrição
  */
 async function deleteRegistrationHandler(
-  request: NextRequest,
+  _request: NextRequest,
   context: any
 ) {
   try {

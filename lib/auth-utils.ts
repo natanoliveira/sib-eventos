@@ -4,12 +4,16 @@ import { prisma } from './prisma';
 
 export async function getUserFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
+  const cookieToken = request.cookies.get('auth_token')?.value;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token =
+    authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : cookieToken;
+
+  if (!token) {
     return null;
   }
-
-  const token = authHeader.substring(7);
   const payload = verifyToken(token);
 
   if (!payload) {

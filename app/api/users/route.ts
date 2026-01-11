@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 import { hash } from 'bcrypt';
 
 // GET /api/users - Listar usuários
-export const GET = requirePermission('users.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -57,7 +57,7 @@ export const GET = requirePermission('users.view')(
 );
 
 // POST /api/users - Criar usuário
-export const POST = requirePermission('users.create')(
+export const POST = requireAuth(
   async (request: NextRequest) => {
     try {
       const body = await request.json();

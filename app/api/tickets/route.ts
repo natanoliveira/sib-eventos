@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/tickets - Listar tickets
-export const GET = requirePermission('tickets.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -11,6 +11,8 @@ export const GET = requirePermission('tickets.view')(
       const eventId = searchParams.get('eventId');
       const status = searchParams.get('status');
       const search = searchParams.get('search');
+      const page = parseInt(searchParams.get('page') || '1');
+      const limit = parseInt(searchParams.get('limit') || '10');
 
       const where: any = {};
       if (personId) where.personId = personId;
@@ -20,6 +22,10 @@ export const GET = requirePermission('tickets.view')(
         where.ticketNumber = { contains: search, mode: 'insensitive' };
       }
 
+      // Contar total de registros
+      const total = await prisma.ticket.count({ where });
+
+      // Buscar dados paginados
       const tickets = await prisma.ticket.findMany({
         where,
         include: {
@@ -57,12 +63,23 @@ export const GET = requirePermission('tickets.view')(
             },
           },
         },
+        relationLoadStrategy: 'join',
         orderBy: {
           createdAt: 'desc',
         },
+        skip: (page - 1) * limit,
+        take: limit,
       });
 
-      return NextResponse.json(tickets);
+      const totalPages = Math.ceil(total / limit);
+
+      return NextResponse.json({
+        data: tickets,
+        total,
+        page,
+        limit,
+        totalPages,
+      });
     } catch (error) {
       console.error('Error fetching tickets:', error);
       return NextResponse.json(
@@ -75,7 +92,7 @@ export const GET = requirePermission('tickets.view')(
 
 // POST /api/tickets - Criar ticket não é mais usado diretamente
 // Tickets agora são criados via /api/invoices/generate
-export const POST = requirePermission('tickets.create')(
+export const POST = requireAuth(
   async (_: NextRequest) => {
     return NextResponse.json(
       {

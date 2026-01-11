@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Search, Download, QrCode, Mail, Printer, Calendar, MapPin, User, Loader2 } from "lucide-react";
 import { toastSuccess, toastError } from '../lib/toast';
 import { apiClient } from '../lib/api-client';
+import { DataTablePagination } from "./data-display/data-table-pagination";
+import { DataTableHeader } from "./data-display/data-table-header";
 
 export function TicketsManagement() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -19,18 +21,36 @@ export function TicketsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     loadTickets();
-  }, []);
+  }, [searchTerm, selectedEvent, selectedStatus, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedEvent, selectedStatus]);
 
   const loadTickets = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getTickets();
-      setTickets(data);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedEvent !== 'all') params.event = selectedEvent;
+      if (selectedStatus !== 'all') params.status = selectedStatus;
+
+      const response = await apiClient.getTickets(params);
+      setTickets(response.data);
+      setTotalItems(response.total);
+      setTotalPages(response.totalPages);
     } catch (error: any) {
       toastError('Erro ao carregar tickets');
       console.error('Error loading tickets:', error);
@@ -38,19 +58,6 @@ export function TicketsManagement() {
       setLoading(false);
     }
   };
-
-  const filteredTickets = tickets.filter(ticket => {
-    const memberName = ticket.invoice.person?.name || '';
-    const memberEmail = ticket.invoice.person?.email || '';
-    const eventTitle = ticket.invoice.event?.title || '';
-
-    const matchesSearch = memberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      memberEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEvent = selectedEvent === 'all' || eventTitle === selectedEvent;
-    const matchesStatus = selectedStatus === 'all' || ticket.status === selectedStatus;
-    return matchesSearch && matchesEvent && matchesStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,6 +111,16 @@ export function TicketsManagement() {
   const handlePrintTicket = (ticketId: string) => {
     console.log('Printing ticket:', ticketId);
     window.print();
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   const events = [...new Set(tickets.map(ticket => ticket.event?.title).filter(Boolean))];
@@ -160,10 +177,13 @@ export function TicketsManagement() {
       {/* Tickets Table */}
       <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-900">Lista de Passaportes</CardTitle>
-          <CardDescription>
-            {filteredTickets.length} passaportes encontrados
-          </CardDescription>
+          <DataTableHeader
+            title="Lista de Passaportes"
+            totalItems={totalItems}
+            itemLabel="passaportes"
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -171,19 +191,135 @@ export function TicketsManagement() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID / Participante</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTickets.map((ticket) => {
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID / Participante</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tickets.map((ticket) => {
+                      const memberName = ticket.person?.name || 'N/A';
+                      const memberEmail = ticket.person?.email || 'N/A';
+                      const eventTitle = ticket.event?.title || 'N/A';
+                      const eventDate = ticket.event?.startDate;
+                      const eventLocation = ticket.event?.location || 'N/A';
+                      const paymentStatus = ticket.invoice?.status || 'PENDING';
+
+                      return (
+                        <TableRow key={ticket.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-blue-900 text-sm">{ticket.ticketNumber || ticket.id}</div>
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-8 w-8 border border-blue-200">
+                                  <AvatarImage src="" alt={memberName} />
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                                    {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm">{memberName}</div>
+                                  <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-sm text-blue-900">{eventTitle}</div>
+                              {eventDate && (
+                                <div className="text-xs text-muted-foreground flex items-center">
+                                  <Calendar className="w-3 h-3 mr-1" />
+                                  {new Date(eventDate).toLocaleDateString('pt-BR')}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground flex items-center">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {eventLocation}
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="border-blue-200">
+                                {ticket.ticketType || 'Padrão'}
+                              </Badge>
+                              {ticket.event?.price && (
+                                <div className="text-sm text-blue-900">
+                                  R$ {ticket.event.price.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge className={getPaymentStatusColor(paymentStatus)}>
+                              {getPaymentLabel(paymentStatus)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge className={getStatusColor(ticket.status)}>
+                              {getStatusLabel(ticket.status)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50"
+                                onClick={() => handlePreviewTicket(ticket)}
+                              >
+                                <QrCode className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50"
+                                onClick={() => handleSendTicket(ticket.id)}
+                              >
+                                <Mail className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50"
+                                onClick={() => handlePrintTicket(ticket.id)}
+                              >
+                                <Printer className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50"
+                              >
+                                <Download className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {tickets.map((ticket) => {
                   const memberName = ticket.person?.name || 'N/A';
                   const memberEmail = ticket.person?.email || 'N/A';
                   const eventTitle = ticket.event?.title || 'N/A';
@@ -192,106 +328,120 @@ export function TicketsManagement() {
                   const paymentStatus = ticket.invoice?.status || 'PENDING';
 
                   return (
-                    <TableRow key={ticket.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-blue-900 text-sm">{ticket.ticketNumber || ticket.id}</div>
-                          <div className="flex items-center space-x-2">
-                            <Avatar className="h-8 w-8 border border-blue-200">
+                    <Card key={ticket.id} className="border-blue-200">
+                      <CardContent className="p-4">
+                        {/* Header com Avatar */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-12 w-12 border-2 border-blue-200">
                               <AvatarImage src="" alt={memberName} />
-                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
                                 {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="text-sm">{memberName}</div>
-                              <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                              <div className="text-blue-900 font-medium">{memberName}</div>
+                              <div className="text-xs text-muted-foreground break-all">{memberEmail}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={`${getPaymentStatusColor(paymentStatus)} text-xs`}>
+                                  {getPaymentLabel(paymentStatus)}
+                                </Badge>
+                                <Badge className={`${getStatusColor(ticket.status)} text-xs`}>
+                                  {getStatusLabel(ticket.status)}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm text-blue-900">{eventTitle}</div>
-                          {eventDate && (
-                            <div className="text-xs text-muted-foreground flex items-center">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {new Date(eventDate).toLocaleDateString('pt-BR')}
+                        {/* Detalhes */}
+                        <div className="space-y-2 mb-4">
+                          <div className="text-sm flex items-center">
+                            <QrCode className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span className="text-blue-900">{ticket.ticketNumber || ticket.id}</span>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <div>
+                              <div className="text-blue-900">{eventTitle}</div>
+                              {eventDate && (
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(eventDate).toLocaleDateString('pt-BR')}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <div className="text-xs text-muted-foreground flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
                             {eventLocation}
                           </div>
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="border-blue-200">
+                              {ticket.ticketType || 'Padrão'}
+                            </Badge>
+                            {ticket.event?.price && (
+                              <div className="text-sm font-medium text-blue-900">
+                                R$ {ticket.event.price.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Badge variant="outline" className="border-blue-200">
-                            {ticket.ticketType || 'Padrão'}
-                          </Badge>
-                          {ticket.event?.price && (
-                            <div className="text-sm text-blue-900">
-                              R$ {ticket.event.price.toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge className={getPaymentStatusColor(paymentStatus)}>
-                          {getPaymentLabel(paymentStatus)}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge className={getStatusColor(ticket.status)}>
-                          {getStatusLabel(ticket.status)}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center space-x-1">
+                        {/* Ações */}
+                        <div className="grid grid-cols-2 gap-2 pt-4 border-t">
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
                             onClick={() => handlePreviewTicket(ticket)}
                           >
-                            <QrCode className="h-4 w-4 text-blue-600" />
+                            <QrCode className="h-4 w-4 mr-2" />
+                            Visualizar
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
                             onClick={() => handleSendTicket(ticket.id)}
                           >
-                            <Mail className="h-4 w-4 text-blue-600" />
+                            <Mail className="h-4 w-4 mr-2" />
+                            Enviar
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
                             onClick={() => handlePrintTicket(ticket.id)}
                           >
-                            <Printer className="h-4 w-4 text-blue-600" />
+                            <Printer className="h-4 w-4 mr-2" />
+                            Imprimir
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50"
                           >
-                            <Download className="h-4 w-4 text-blue-600" />
+                            <Download className="h-4 w-4 mr-2" />
+                            Baixar
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Pagination */}
+              <DataTablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                loading={loading}
+              />
+            </>
           )}
         </CardContent>
       </Card>

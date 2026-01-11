@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/invoices - Listar faturas
-export const GET = requirePermission('dashboard.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -67,6 +67,7 @@ export const GET = requirePermission('dashboard.view')(
             },
           },
         },
+        relationLoadStrategy: 'join',
         orderBy: {
           createdAt: 'desc',
         },

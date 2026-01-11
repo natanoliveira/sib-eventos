@@ -45,8 +45,8 @@ export function InvoiceGenerator() {
         apiClient.getEvents({}),
         apiClient.getInvoices({})
       ]);
-      setMembers(membersData);
-      setEvents(eventsData);
+      setMembers(membersData.data);
+      setEvents(eventsData.data);
       setInvoices(invoicesData);
     } catch (error) {
       console.error('Error loading data:', error);

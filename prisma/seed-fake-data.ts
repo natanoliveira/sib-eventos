@@ -47,7 +47,15 @@ const LAST_NAMES = [
   'Vieira',
 ];
 
-const CATEGORIES = ['Membro Ativo', 'Membro Novo', 'Visitante', 'Membro Regular'];
+const CATEGORIES: string[] = [
+  'MEMBRO_ATIVO',
+  'MEMBRO_NOVO',
+  'VISITANTE',
+  'MEMBRO_REGULAR',
+  'MEMBRO_VISITANTE',
+  'ADULTO',
+  'JOVEM',
+];
 
 const STREETS = [
   'Rua das Flores',
@@ -88,7 +96,6 @@ export function buildFakePeopleAndMemberships(options: {
     const joinYear = 2020 + (i % 5);
     const joinMonth = i % 12;
     const joinDay = (i % 28) + 1;
-    const phoneSuffix = String(1000 + (i % 9000));
     const addressNumber = 100 + (i % 900);
     const street = STREETS[(i * 3) % STREETS.length];
     const emailIndex = String(i + 1).padStart(5, '0');

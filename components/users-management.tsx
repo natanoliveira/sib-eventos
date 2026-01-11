@@ -11,17 +11,19 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Switch } from "./ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Search, UserPlus, Edit2, Trash2, Shield, ShieldCheck, Users, Loader2 } from "lucide-react";
+import { Search, UserPlus, Edit2, Shield, ShieldCheck, Users, Loader2, Ban } from "lucide-react";
 import { toastSuccess, toastError } from '../lib/toast';
 import { apiClient } from '../lib/api-client';
+import { ConfirmDialog } from './feedback/confirm-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 const availablePermissions = [
   { key: "events.create", label: "Criar Eventos" },
   { key: "events.edit", label: "Editar Eventos" },
   { key: "events.delete", label: "Deletar Eventos" },
-  { key: "members.view", label: "Visualizar Membros" },
-  { key: "members.create", label: "Criar Membros" },
-  { key: "members.edit", label: "Editar Membros" },
+  { key: "members.view", label: "Visualizar Pessoa" },
+  { key: "members.create", label: "Criar Pessoa" },
+  { key: "members.edit", label: "Editar Pessoa" },
   { key: "dashboard.view", label: "Acessar Dashboard" },
   { key: "tickets.view", label: "Visualizar Tickets" },
   { key: "tickets.create", label: "Criar Tickets" },
@@ -35,7 +37,8 @@ export function UsersManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  // const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isInactivateDialogOpen, setIsInactivateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
@@ -62,7 +65,21 @@ export function UsersManagement() {
     try {
       setLoading(true);
       const data = await apiClient.getUsers();
-      setUsers(data);
+      const usersWithPermissions = await Promise.all(
+        data.map(async (user) => {
+          if (typeof user.permissions === 'object') {
+            return user;
+          }
+
+          try {
+            return await apiClient.getUser(user.id);
+          } catch (error) {
+            console.error('Error loading user permissions:', error);
+            return user;
+          }
+        })
+      );
+      setUsers(usersWithPermissions);
     } catch (error: any) {
       toastError('Erro ao carregar usuários');
       console.error('Error loading users:', error);
@@ -92,7 +109,6 @@ export function UsersManagement() {
       await loadUsers();
     } catch (error: any) {
       toastError(error.message || 'Erro ao criar usuário');
-      console.error('Error creating user:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -125,22 +141,41 @@ export function UsersManagement() {
     }
   };
 
-  const handleDeleteClick = (user: any) => {
+  // const handleDeleteClick = (user: any) => {
+  //   setSelectedUser(user);
+  //   setIsDeleteDialogOpen(true);
+  // };
+
+  // const handleDeleteUser = async () => {
+  //   try {
+  //     setIsSubmitting(true);
+  //     await apiClient.deleteUser(selectedUser?.id);
+  //     toastSuccess('Usuário removido com sucesso!');
+  //     setIsDeleteDialogOpen(false);
+  //     setSelectedUser(null);
+  //     await loadUsers();
+  //   } catch (error: any) {
+  //     toastError(error.message || 'Erro ao remover usuário');
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
+    const handleInactivateClick = (user: any) => {
     setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
+    setIsInactivateDialogOpen(true);
   };
 
-  const handleDeleteUser = async () => {
+  const handleInactivateUser = async () => {
     try {
       setIsSubmitting(true);
-      await apiClient.deleteUser(selectedUser?.id);
-      toastSuccess('Usuário removido com sucesso!');
-      setIsDeleteDialogOpen(false);
+      await apiClient.updateUser(selectedUser?.id,{status: 'INACTIVE'});
+      toastSuccess('Usuário inativado com sucesso!');
+      setIsInactivateDialogOpen(false);
       setSelectedUser(null);
       await loadUsers();
     } catch (error: any) {
-      toastError(error.message || 'Erro ao remover usuário');
-      console.error('Error deleting user:', error);
+      toastError(error.message || 'Erro ao inativar usuário');
     } finally {
       setIsSubmitting(false);
     }
@@ -179,21 +214,61 @@ export function UsersManagement() {
     }
   };
 
-  const PermissionsGrid = ({ permissions, isEdit }: { permissions: Record<string, boolean>, isEdit: boolean }) => (
-    <div className="grid grid-cols-2 gap-3">
-      {availablePermissions.map((perm) => (
-        <div key={perm.key} className="flex items-center space-x-2">
+  const setAllPermissions = (isChecked: boolean, isEdit: boolean = false) => {
+    const updatedPermissions = availablePermissions.reduce((acc, perm) => {
+      acc[perm.key] = isChecked;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    if (isEdit) {
+      setEditUser(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          ...updatedPermissions
+        }
+      }));
+    } else {
+      setNewUser(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          ...updatedPermissions
+        }
+      }));
+    }
+  };
+
+  const PermissionsGrid = ({ permissions, isEdit }: { permissions: Record<string, boolean>, isEdit: boolean }) => {
+    const allChecked = availablePermissions.every((perm) => !!permissions[perm.key]);
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center space-x-2 col-span-2">
           <Switch
-            checked={!!permissions[perm.key]}
-            onCheckedChange={() => togglePermission(perm.key, isEdit)}
+            id={'todos'}
+            checked={allChecked}
+            onCheckedChange={(checked) => setAllPermissions(checked, isEdit)}
           />
-          <Label className="text-sm cursor-pointer" onClick={() => togglePermission(perm.key, isEdit)}>
-            {perm.label}
+          <Label htmlFor={'todos'} className="text-sm cursor-pointer" onClick={() => setAllPermissions(!allChecked, isEdit)}>
+            Marcar todas
           </Label>
         </div>
-      ))}
-    </div>
-  );
+        {availablePermissions.map((perm) => (
+          <div key={perm.key} className="flex items-center space-x-2">
+            <Switch
+              id={perm.key}
+              checked={!!permissions[perm.key]}
+              onCheckedChange={() => togglePermission(perm.key, isEdit)}
+            />
+            <Label htmlFor={perm.key} className="text-sm cursor-pointer" onClick={() => togglePermission(perm.key, isEdit)}>
+              {perm.label}
+            </Label>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -284,13 +359,20 @@ export function UsersManagement() {
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
+              {isSubmitting ? (
+              <Button disabled>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enviando
+              </Button>
+            ) : (
               <Button
                 onClick={handleAddUser}
                 disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {isSubmitting ? 'Criando...' : 'Criar Usuário'}
+                Criar Usuário
               </Button>
+            )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -355,14 +437,23 @@ export function UsersManagement() {
                         <Edit2 className="w-4 h-4 mr-1" />
                         Editar
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-red-200 hover:bg-red-50 text-red-600"
-                        onClick={() => handleDeleteClick(user)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 hover:bg-red-50 text-red-600"
+                            onClick={() => handleInactivateClick(user)}
+                          >
+                            <Ban className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Inativar usuário</p>
+                        </TooltipContent>
+                      </Tooltip>
+
                     </div>
                   </div>
                 </CardContent>
@@ -457,18 +548,37 @@ export function UsersManagement() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <ConfirmDialog
+        open={isInactivateDialogOpen}
+        onOpenChange={setIsInactivateDialogOpen}
+        title="Inativar usuário"
+        description={
+          selectedUser ? (
+            <>
+              Você está prestes a inativar o usuário {' '}
+              <strong>{selectedUser?.name.toUpperCase() || 'N/A'}</strong>. {'\n'}Esta ação não pode ser desfeita.
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Sim, inativar usuário"
+        onConfirm={handleInactivateUser}
+        destructive
+      />
+
+      {/* <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleInactivateUser}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Você está prestes a remover o usuário "{selectedUser?.name}". Esta ação não pode ser desfeita.
+              Você está prestes a inativar o usuário "{selectedUser?.name}". Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteUser}
+              onClick={handleInactivateUser}
               disabled={isSubmitting}
               className="bg-red-500 hover:bg-red-600"
             >
@@ -476,7 +586,7 @@ export function UsersManagement() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog> */}
     </div>
   );
 }

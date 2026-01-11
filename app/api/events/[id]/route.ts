@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/events/[id] - Obter evento específico
-export async function GET(
+async function getEventHandler(
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -64,6 +65,7 @@ export async function GET(
           },
         },
       },
+      relationLoadStrategy: 'join',
     });
 
     if (!event) {
@@ -83,8 +85,10 @@ export async function GET(
   }
 }
 
+export const GET = requireAuth(getEventHandler);
+
 // PUT /api/events/[id] - Atualizar evento
-export const PUT = requirePermission('events.edit')(
+export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: { id: string } }) => {
     try {
       const body = await request.json();
@@ -138,7 +142,7 @@ export const PUT = requirePermission('events.edit')(
 );
 
 // DELETE /api/events/[id] - Deletar evento
-export const DELETE = requirePermission('events.delete')(
+export const DELETE = requireAuth(
   async (_: NextRequest, { params }: { params: { id: string } }) => {
     try {
       await prisma.event.update({

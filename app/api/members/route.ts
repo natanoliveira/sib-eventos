@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
+import { formatMemberCategory, parseMemberCategoryInput } from '@/lib/member-categories';
 
 // GET /api/members - Listar pessoas/membros com paginação
-export const GET = requirePermission('members.view')(
+export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
       const { searchParams } = new URL(request.url);
@@ -15,7 +16,20 @@ export const GET = requirePermission('members.view')(
 
       const where: any = {};
       if (status) where.status = status;
-      if (category) where.category = category;
+      const parsedCategory = parseMemberCategoryInput(category);
+      if (!parsedCategory.isValid) {
+        return NextResponse.json(
+          { error: 'Categoria inválida' },
+          { status: 400 }
+        );
+      }
+      if (parsedCategory.value !== undefined && parsedCategory.value !== null) {
+        where.category = parsedCategory.value;
+      }
+
+      console.log();
+      console.log(where);
+      console.log();
       if (search) {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
@@ -39,8 +53,13 @@ export const GET = requirePermission('members.view')(
 
       const totalPages = Math.ceil(total / limit);
 
+      const formattedPersons = persons.map((person) => ({
+        ...person,
+        category: formatMemberCategory(person.category),
+      }));
+
       return NextResponse.json({
-        data: persons,
+        data: formattedPersons,
         total,
         page,
         limit,
@@ -57,7 +76,7 @@ export const GET = requirePermission('members.view')(
 );
 
 // POST /api/members - Criar pessoa/membro
-export const POST = requirePermission('members.create')(
+export const POST = requireAuth(
   async (request: NextRequest) => {
     try {
       const body = await request.json();
@@ -65,7 +84,7 @@ export const POST = requirePermission('members.create')(
 
       if (!name || !email) {
         return NextResponse.json(
-          { error: 'Nome e email são obrigatórios' },
+          { error: 'Nome e e-mail são obrigatórios' },
           { status: 400 }
         );
       }
@@ -77,8 +96,16 @@ export const POST = requirePermission('members.create')(
 
       if (existing) {
         return NextResponse.json(
-          { error: 'Email já cadastrado' },
+          { error: 'E-mail já cadastrado' },
           { status: 409 }
+        );
+      }
+
+      const parsedCategory = parseMemberCategoryInput(category);
+      if (!parsedCategory.isValid) {
+        return NextResponse.json(
+          { error: 'Categoria inválida' },
+          { status: 400 }
         );
       }
 
@@ -88,14 +115,17 @@ export const POST = requirePermission('members.create')(
           email,
           phone,
           address,
-          category,
+          ...(parsedCategory.value !== undefined && { category: parsedCategory.value }),
           status: status || 'ACTIVE',
           notes,
           image,
         },
       });
 
-      return NextResponse.json(person, { status: 201 });
+      return NextResponse.json(
+        { ...person, category: formatMemberCategory(person.category) },
+        { status: 201 }
+      );
     } catch (error) {
       console.error('Error creating person:', error);
       return NextResponse.json(

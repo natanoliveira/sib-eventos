@@ -72,7 +72,7 @@ async function registerHandler(request: NextRequest) {
 
     logger.info('Novo usuário registrado', { userId: user.id, email: user.email });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         token,
         user: {
@@ -86,6 +86,15 @@ async function registerHandler(request: NextRequest) {
       },
       { status: 201 }
     );
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     return errorResponse('Erro ao criar conta', 500, error);
   }

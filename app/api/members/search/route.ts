@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/members/search - Buscar pessoas/membros por nome, email ou telefone (autocomplete)
-export async function GET(request: NextRequest) {
+async function searchMembersHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
@@ -42,3 +43,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = requireAuth(searchMembersHandler);

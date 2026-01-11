@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
+import { formatMemberCategory, parseMemberCategoryInput } from '@/lib/member-categories';
 
 // GET /api/members/[id] - Obter pessoa/membro específico
-export const GET = requirePermission('members.view')(
+export const GET = requireAuth(
   async (_: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
       const { id } = await params;
@@ -18,7 +19,10 @@ export const GET = requirePermission('members.view')(
         );
       }
 
-      return NextResponse.json(person);
+      return NextResponse.json({
+        ...person,
+        category: formatMemberCategory(person.category),
+      });
     } catch (error) {
       console.error('Error fetching person:', error);
       return NextResponse.json(
@@ -30,7 +34,7 @@ export const GET = requirePermission('members.view')(
 );
 
 // PUT /api/members/[id] - Atualizar pessoa/membro
-export const PUT = requirePermission('members.edit')(
+export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
       const { id } = await params;
@@ -51,7 +55,16 @@ export const PUT = requirePermission('members.edit')(
       if (email) updateData.email = email;
       if (phone !== undefined) updateData.phone = phone;
       if (address !== undefined) updateData.address = address;
-      if (category !== undefined) updateData.category = category;
+      const parsedCategory = parseMemberCategoryInput(category);
+      if (!parsedCategory.isValid) {
+        return NextResponse.json(
+          { error: 'Categoria inválida' },
+          { status: 400 }
+        );
+      }
+      if (parsedCategory.value !== undefined) {
+        updateData.category = parsedCategory.value;
+      }
       if (status) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
       if (image !== undefined) updateData.image = image;
@@ -61,7 +74,10 @@ export const PUT = requirePermission('members.edit')(
         data: updateData,
       });
 
-      return NextResponse.json(person);
+      return NextResponse.json({
+        ...person,
+        category: formatMemberCategory(person.category),
+      });
     } catch (error) {
       console.error('Error updating person:', error);
       return NextResponse.json(
@@ -73,7 +89,7 @@ export const PUT = requirePermission('members.edit')(
 );
 
 // DELETE /api/members/[id] - Deletar pessoa/membro
-export const DELETE = requirePermission('members.delete')(
+export const DELETE = requireAuth(
   async (_: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
       const { id } = await params;

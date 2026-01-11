@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -14,12 +14,18 @@ import { Search, DollarSign, Calendar, CheckCircle, AlertCircle, XCircle, Credit
 import { apiClient } from '../lib/api-client';
 import { toastSuccess, toastError } from '../lib/toast';
 import { formatCurrencyBr } from '@/lib/utils';
+import { DataTablePagination } from "./data-display/data-table-pagination";
+import { DataTableHeader } from "./data-display/data-table-header";
 
 export function InstallmentsManagement() {
   const [installments, setInstallments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
@@ -31,27 +37,32 @@ export function InstallmentsManagement() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [searchTerm, statusFilter, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const installmentsData = await apiClient.getInstallments({});
-      setInstallments(installmentsData);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== 'all') params.status = statusFilter;
+
+      const response = await apiClient.getInstallments(params);
+      setInstallments(response.data);
+      setTotalItems(response.total);
+      setTotalPages(response.totalPages);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const filteredInstallments = installments.filter(inst => {
-    const matchesSearch = inst.invoice?.person?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inst.invoice?.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inst.invoice?.event?.title?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || inst.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
 
   const handleOpenPaymentDialog = (installment: any) => {
     setSelectedInstallment(installment);
@@ -140,6 +151,16 @@ export function InstallmentsManagement() {
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   const calculateTotals = () => {
@@ -251,10 +272,13 @@ export function InstallmentsManagement() {
       {/* Installments Table */}
       <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-900">Lista de Parcelas</CardTitle>
-          <CardDescription>
-            {filteredInstallments.length} parcelas encontradas
-          </CardDescription>
+          <DataTableHeader
+            title="Lista de Parcelas"
+            totalItems={totalItems}
+            itemLabel="parcelas"
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -262,112 +286,217 @@ export function InstallmentsManagement() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nº Fatura</TableHead>
-                  <TableHead>Pessoa</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Parcela</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInstallments.map((inst) => (
-                  <TableRow key={inst.id}>
-                    <TableCell className="text-blue-900">
-                      {inst.invoice?.invoiceNumber || 'N/A'}
-                    </TableCell>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº Fatura</TableHead>
+                      <TableHead>Pessoa</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>Parcela</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {installments.map((inst) => (
+                      <TableRow key={inst.id}>
+                        <TableCell className="text-blue-900">
+                          {inst.invoice?.invoiceNumber || 'N/A'}
+                        </TableCell>
 
-                    <TableCell>
-                      <div>
-                        <div className="text-blue-900">{inst.invoice?.person?.name || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">{inst.invoice?.person?.email || ''}</div>
-                      </div>
-                    </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="text-blue-900">{inst.invoice?.person?.name || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground">{inst.invoice?.person?.email || ''}</div>
+                          </div>
+                        </TableCell>
 
-                    <TableCell>
-                      <div className="text-indigo-900">{inst.invoice?.event?.title || 'N/A'}</div>
-                    </TableCell>
+                        <TableCell>
+                          <div className="text-indigo-900">{inst.invoice?.event?.title || 'N/A'}</div>
+                        </TableCell>
 
-                    <TableCell>
-                      <Badge variant="outline" className="border-blue-200">
-                        Parcela {inst.installmentNumber}
-                      </Badge>
-                    </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="border-blue-200">
+                            Parcela {inst.installmentNumber}
+                          </Badge>
+                        </TableCell>
 
-                    <TableCell>
-                      <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1 text-green-600" />
-                        <span className="text-green-900">R$ {formatCurrencyBr(parseFloat(inst.amount || 0))}</span>
-                      </div>
-                    </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <DollarSign className="w-4 h-4 mr-1 text-green-600" />
+                            <span className="text-green-900">R$ {formatCurrencyBr(parseFloat(inst.amount || 0))}</span>
+                          </div>
+                        </TableCell>
 
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1 text-muted-foreground" />
-                        <span className={isOverdue(inst.dueDate) && inst.status !== 'PAID' ? 'text-red-600' : ''}>
-                          {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                    </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1 text-muted-foreground" />
+                            <span className={isOverdue(inst.dueDate) && inst.status !== 'PAID' ? 'text-red-600' : ''}>
+                              {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </TableCell>
 
-                    <TableCell>
-                      <Badge className={getStatusColor(inst.status)}>
-                        <span className="mr-1">{getStatusIcon(inst.status)}</span>
-                        {getStatusLabel(inst.status)}
-                      </Badge>
-                    </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(inst.status)}>
+                            <span className="mr-1">{getStatusIcon(inst.status)}</span>
+                            {getStatusLabel(inst.status)}
+                          </Badge>
+                        </TableCell>
 
-                    <TableCell>
-                      {inst.status === 'PENDING' && (
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 hover:bg-green-50"
-                            onClick={() => handleOpenPaymentDialog(inst)}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-                            Registrar Pagamento
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 hover:bg-blue-50"
-                            onClick={() => handlePayWithStripe(inst)}
-                          >
-                            <CreditCard className="h-4 w-4 text-blue-600 mr-1" />
-                            Stripe
-                          </Button>
+                        <TableCell>
+                          {inst.status === 'PENDING' && (
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 hover:bg-green-50"
+                                onClick={() => handleOpenPaymentDialog(inst)}
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
+                                Registrar Pagamento
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 hover:bg-blue-50"
+                                onClick={() => handlePayWithStripe(inst)}
+                              >
+                                <CreditCard className="h-4 w-4 text-blue-600 mr-1" />
+                                Stripe
+                              </Button>
+                            </div>
+                          )}
+                          {inst.status === 'PAID' && inst.payments?.length > 0 && (
+                            <div className="text-sm text-muted-foreground">
+                              Pago em {new Date(inst.payments[0].paidAt).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                          {inst.status === 'PAID' && (!inst.payments || inst.payments.length === 0) && (
+                            <div className="text-sm text-muted-foreground">
+                              Pago
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {installments.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          Nenhuma parcela encontrada
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <DataTablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  loading={loading}
+                />
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {installments.map((inst) => {
+                  const memberName = inst.invoice?.person?.name || 'N/A';
+                  const memberEmail = inst.invoice?.person?.email || '';
+                  const eventTitle = inst.invoice?.event?.title || 'N/A';
+                  const invoiceNumber = inst.invoice?.invoiceNumber || 'N/A';
+
+                  return (
+                    <Card key={inst.id} className="border-blue-200">
+                      <CardContent className="p-4">
+                        {/* Header com Info */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <div className="text-blue-900 font-medium">{memberName}</div>
+                            <div className="text-xs text-muted-foreground break-all">{memberEmail}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="border-blue-200 text-xs">
+                                Parcela {inst.installmentNumber}
+                              </Badge>
+                              <Badge className={`${getStatusColor(inst.status)} text-xs`}>
+                                {getStatusLabel(inst.status)}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      {inst.status === 'PAID' && inst.payments?.length > 0 && (
-                        <div className="text-sm text-muted-foreground">
-                          Pago em {new Date(inst.payments[0].paidAt).toLocaleDateString('pt-BR')}
-                        </div>
-                      )}
-                      {inst.status === 'PAID' && (!inst.payments || inst.payments.length === 0) && (
-                        <div className="text-sm text-muted-foreground">
-                          Pago
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
 
-                {filteredInstallments.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      Nenhuma parcela encontrada
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                        {/* Detalhes */}
+                        <div className="space-y-2 mb-4">
+                          <div className="text-sm flex items-center">
+                            <Search className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span className="text-blue-900">Fatura {invoiceNumber}</span>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <div>
+                              <div className="text-indigo-900">{eventTitle}</div>
+                            </div>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span className={isOverdue(inst.dueDate) && inst.status !== 'PAID' ? 'text-red-600' : ''}>
+                              Vencimento: {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                          {inst.status === 'PAID' && inst.payments?.length > 0 && (
+                            <div className="text-sm flex items-center text-green-600">
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              <span>Pago em {new Date(inst.payments[0].paidAt).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <span className="text-sm text-muted-foreground">Valor</span>
+                            <span className="text-lg font-medium text-green-900">
+                              R$ {formatCurrencyBr(parseFloat(inst.amount || 0))}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Ações */}
+                        {inst.status === 'PENDING' && (
+                          <div className="flex gap-2 pt-4 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
+                              onClick={() => handleOpenPaymentDialog(inst)}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Registrar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                              onClick={() => handlePayWithStripe(inst)}
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Stripe
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+            </>
           )}
         </CardContent>
       </Card>

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, getUserFromRequest } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 import { errorResponse } from '@/lib/api-response';
 import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 
 /**
- * GET /api/event-registrations - Listar inscrições em eventos
+ * GET /api/event-registrations - Listar inscrições em eventos com paginação
  *
  * Query params:
  * - eventId: Filtrar por evento específico
  * - userId: Filtrar por usuário/pessoa específica (personId)
  * - status: Filtrar por status (PENDING, CONFIRMED, CANCELLED)
+ * - page: Número da página (padrão: 1)
+ * - limit: Itens por página (padrão: 10)
  */
 async function getRegistrationsHandler(request: NextRequest) {
   try {
@@ -18,12 +20,18 @@ async function getRegistrationsHandler(request: NextRequest) {
     const eventId = searchParams.get('eventId');
     const userId = searchParams.get('userId'); // Na verdade é personId
     const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     const where: any = {};
     if (eventId) where.eventId = eventId;
     if (userId) where.personId = userId;
     if (status) where.status = status;
 
+    // Contar total de registros
+    const total = await prisma.eventMembership.count({ where });
+
+    // Buscar dados paginados
     const registrations = await prisma.eventMembership.findMany({
       where,
       include: {
@@ -56,30 +64,41 @@ async function getRegistrationsHandler(request: NextRequest) {
           },
         },
       },
+      relationLoadStrategy: 'join',
       orderBy: {
         registeredAt: 'desc',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+
+    const totalPages = Math.ceil(total / limit);
 
     // Formatar resposta para compatibilidade com o frontend
     const formattedRegistrations = registrations.map((reg) => ({
       id: reg.id,
-      userId: reg.userId, // Mapear personId para userId
+      userId: reg.userId,
       eventId: reg.eventId,
       status: reg.status,
       registeredAt: reg.registeredAt,
-      person: reg.person, // Mapear person para person
+      person: reg.person,
       event: reg.event,
       createdBy: reg.createdByUser,
     }));
 
-    return NextResponse.json(formattedRegistrations);
+    return NextResponse.json({
+      data: formattedRegistrations,
+      total,
+      page,
+      limit,
+      totalPages,
+    });
   } catch (error) {
     return errorResponse('Erro ao buscar inscrições', 500, error);
   }
 }
 
-export const GET = withRateLimit(apiLimiter, getRegistrationsHandler);
+export const GET = requireAuth(withRateLimit(apiLimiter, getRegistrationsHandler));
 
 /**
  * POST /api/event-registrations - Criar nova inscrição

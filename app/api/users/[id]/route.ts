@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 // GET /api/users/[id] - Buscar usuário por ID
-export const GET = requirePermission('users.view')(
+export const GET = requireAuth(
   async (_request: NextRequest, { params }: { params: { id: string } }) => {
     try {
       const user = await prisma.user.findUnique({
@@ -45,7 +45,7 @@ export const GET = requirePermission('users.view')(
 );
 
 // PUT /api/users/[id] - Atualizar usuário
-export const PUT = requirePermission('users.edit')(
+export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: { id: string } }) => {
     try {
       const body = await request.json();
@@ -141,7 +141,7 @@ export const PUT = requirePermission('users.edit')(
 );
 
 // DELETE /api/users/[id] - Deletar usuário
-export const DELETE = requirePermission('users.delete')(
+export const DELETE = requireAuth(
   async (_request: NextRequest, { params }: { params: { id: string } }) => {
     try {
       // Verificar se usuário existe

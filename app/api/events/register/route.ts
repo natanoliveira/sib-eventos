@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-utils';
 
-// POST /api/events/register - Inscrever pessoa/membro em evento (público)
-export async function POST(request: NextRequest) {
+// POST /api/events/register - Inscrever pessoa/membro em evento
+async function registerEventHandler(request: NextRequest, context: any) {
   try {
     const body = await request.json();
     const { personId, eventId } = body;
@@ -42,19 +43,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se já existe inscrição
-    const existingRegistration = await prisma.eventMembership.findUnique({
+    // Verificar se já existe inscrição CONFIRMADA ou PENDENTE
+    const existingRegistration = await prisma.eventMembership.findFirst({
       where: {
-        personId_eventId: {
-          personId,
-          eventId,
-        },
+        personId,
+        eventId,
+        status: { in: ['CONFIRMED', 'PENDING'] },
       },
     });
 
     if (existingRegistration) {
       return NextResponse.json(
-        { error: 'Você já está inscrito neste evento' },
+        { error: 'Você já possui uma inscrição confirmada ou pendente neste evento' },
         { status: 400 }
       );
     }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         personId,
         eventId,
         status: 'PENDING', // Pendente até pagamento
-        createdByUserId: null, // público
+        createdByUserId: context.user.id,
       },
       include: {
         person: {
@@ -90,10 +90,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      message: 'Inscrição realizada com sucesso',
-      registration,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: 'Inscrição realizada com sucesso',
+        registration,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error registering for event:', error);
     return NextResponse.json(
@@ -102,3 +105,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = requireAuth(registerEventHandler);
