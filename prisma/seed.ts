@@ -36,19 +36,38 @@ async function main() {
   const hashedPassword = await hash('123456', 12);
 
   // Admin
-  const admin = await prisma.user.create({
-    data: {
-      name: 'Pastor João Silva',
-      email: 'admin@igreja.com',
-      password: hashedPassword,
-      role: UserRole.ADMIN,
-      phone: '(11) 99999-9999',
-      address: 'Rua da Igreja, 123 - São Paulo, SP',
-      category: 'Pastor Principal',
-      status: UserStatus.ACTIVE,
-      joinDate: new Date('2020-01-01'),
-    },
+  const adminEmail = 'admin@igreja.com';
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
   });
+
+  const admin = existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: {
+          name: 'Pastor João Silva',
+          password: hashedPassword,
+          role: UserRole.ADMIN,
+          phone: '(11) 99999-9999',
+          address: 'Rua da Igreja, 123 - São Paulo, SP',
+          category: 'Pastor Principal',
+          status: UserStatus.ACTIVE,
+          joinDate: new Date('2020-01-01'),
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          name: 'Pastor João Silva',
+          email: adminEmail,
+          password: hashedPassword,
+          role: UserRole.ADMIN,
+          phone: '(11) 99999-9999',
+          address: 'Rua da Igreja, 123 - São Paulo, SP',
+          category: 'Pastor Principal',
+          status: UserStatus.ACTIVE,
+          joinDate: new Date('2020-01-01'),
+        },
+      });
 
   // Líderes
   const leader1 = await prisma.user.create({
@@ -141,17 +160,15 @@ async function main() {
   console.log('🔑 Atribuindo permissões baseadas em roles...');
 
   // Atribuir permissões para o Admin (todas as permissões)
-  const adminPermissionCodes = DEFAULT_PERMISSIONS_BY_ROLE.ADMIN as PermissionCode[];
-  const adminPermissionsToAssign = allPermissions
-    .filter(p => adminPermissionCodes.includes(p.code as PermissionCode))
-    .map(p => ({
-      userId: admin.id,
-      permissionId: p.id,
-      grantedBy: admin.id,
-    }));
+  const adminPermissionsToAssign = allPermissions.map(p => ({
+    userId: admin.id,
+    permissionId: p.id,
+    grantedBy: admin.id,
+  }));
 
   await prisma.userPermission.createMany({
     data: adminPermissionsToAssign,
+    skipDuplicates: true,
   });
 
   // Atribuir permissões para o Leader

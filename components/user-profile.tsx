@@ -34,7 +34,6 @@ export function UserProfile({ onClose }: UserProfileProps) {
   });
 
   const [passwordData, setPasswordData] = useState({
-    oldPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -91,16 +90,26 @@ export function UserProfile({ onClose }: UserProfileProps) {
     setMessage(null);
 
     try {
-      // Convert image to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
-        await apiClient.updateProfile({ ...profileData, image: base64Image });
-        setMessage({ type: 'success', text: 'Foto atualizada com sucesso!' });
-        await loadProfile();
-        setSelectedImage(null);
-      };
-      reader.readAsDataURL(selectedImage);
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao fazer upload da foto');
+      }
+
+      setMessage({ type: 'success', text: 'Foto atualizada com sucesso!' });
+      await loadProfile();
+      setSelectedImage(null);
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Erro ao fazer upload da foto' });
     } finally {
@@ -141,9 +150,9 @@ export function UserProfile({ onClose }: UserProfileProps) {
     setMessage(null);
 
     try {
-      await apiClient.changePassword(passwordData.oldPassword, passwordData.newPassword);
+      await apiClient.changePassword(passwordData.newPassword);
       setMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
-      setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordData({ newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Erro ao alterar senha' });
     } finally {
@@ -208,7 +217,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
                 size="sm"
                 onClick={handleUploadImage}
                 disabled={updating}
-                className="bg-green-500 hover:bg-green-600 text-white"
+                className="bg-green-600 hover:bg-green-500 text-white"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 {updating ? 'Enviando...' : 'Salvar Foto'}
@@ -325,21 +334,6 @@ export function UserProfile({ onClose }: UserProfileProps) {
 
             <TabsContent value="password" className="space-y-4">
               <form onSubmit={handleChangePassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="oldPassword">Senha Atual</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="oldPassword"
-                      type="password"
-                      value={passwordData.oldPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, oldPassword: e.target.value }))}
-                      className="pl-10 border-blue-200"
-                      required
-                    />
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">Nova Senha</Label>
                   <div className="relative">

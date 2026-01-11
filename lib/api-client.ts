@@ -49,13 +49,36 @@ class ApiClient {
       headers,
     })
 
+    const contentType = response.headers.get('content-type') || ''
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }))
-      const messageResponse = error.message = error.error || error.message;
-      throw new Error(messageResponse || `HTTP ${response.status}`)
+      let errorMessage = `HTTP ${response.status}`
+
+      if (contentType.includes('application/json')) {
+        const errorBody = await response.json().catch(() => null)
+        if (errorBody) {
+          errorMessage = errorBody.error || errorBody.message || errorMessage
+        }
+      } else {
+        const text = await response.text().catch(() => '')
+        if (text) {
+          errorMessage = text
+        }
+      }
+
+      throw new Error(errorMessage)
     }
 
-    return response.json()
+    if (response.status === 204) {
+      return undefined as T
+    }
+
+    if (contentType.includes('application/json')) {
+      return response.json()
+    }
+
+    const text = await response.text()
+    return text as unknown as T
   }
 
   // Auth endpoints
@@ -95,10 +118,11 @@ class ApiClient {
     })
   }
 
-  async changePassword(oldPassword: string, newPassword: string) {
+  async changePassword(newPassword: string, oldPassword?: string) {
+    const body = oldPassword ? { oldPassword, newPassword } : { newPassword }
     return this.request<{ message: string }>('/auth/change-password', {
       method: 'POST',
-      body: JSON.stringify({ oldPassword, newPassword }),
+      body: JSON.stringify(body),
     })
   }
 

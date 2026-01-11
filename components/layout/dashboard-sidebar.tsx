@@ -40,11 +40,12 @@ const menuItems: MenuItem[] = [
   { id: 'tickets', icon: Ticket, label: 'Passaportes' },
   { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
   { id: 'reports', icon: BarChart3, label: 'Relatórios' },
-  { id: 'settings', icon: Settings, label: 'Configurações', adminOnly: true },
+  { id: 'settings', icon: Settings, label: 'Configurações'},
 ];
 
 export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: SidebarProps) {
   const { isAdmin } = usePermissions();
+  
   return (
     <>
       {/* Mobile overlay */}
