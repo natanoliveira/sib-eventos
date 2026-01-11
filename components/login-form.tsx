@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Separator } from "./ui/separator";
-import { Mail, Lock, Chrome, Calendar, Users, CreditCard, BarChart3, Shield, CheckCircle2 } from "lucide-react";
+// import { Separator } from "./ui/separator";
+import { Mail, Lock, Calendar, Users, CreditCard, BarChart3, Shield, CheckCircle2 } from "lucide-react";
 import { toastError, toastInfo } from "../lib/toast";
 
 interface LoginFormProps {
@@ -44,37 +44,37 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      await onLogin('google');
-      toastInfo('Login com Google realizado');
-    } catch (error) {
-      console.error('Google login error:', error);
-      const message =
-        error instanceof Error ? error.message : 'Erro no login com Google';
-      setError(message);
-      toastError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const handleGoogleLogin = async () => {
+  //   setIsLoading(true);
+  //   setError('');
+  //   try {
+  //     await onLogin('google');
+  //     toastInfo('Login com Google realizado');
+  //   } catch (error) {
+  //     console.error('Google login error:', error);
+  //     const message =
+  //       error instanceof Error ? error.message : 'Erro no login com Google';
+  //     setError(message);
+  //     toastError(message);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-  const handleQuickLogin = async (email: string, password: string) => {
-    setEmail(email);
-    setPassword(password);
-    setIsLoading(true);
-    setError('');
-    try {
-      await onLogin('email', { email, password });
-    } catch (error) {
-      console.error('Quick login error:', error);
-      setError('E-mail ou senha incorretos');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const handleQuickLogin = async (email: string, password: string) => {
+  //   setEmail(email);
+  //   setPassword(password);
+  //   setIsLoading(true);
+  //   setError('');
+  //   try {
+  //     await onLogin('email', { email, password });
+  //   } catch (error) {
+  //     console.error('Quick login error:', error);
+  //     setError('E-mail ou senha incorretos');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const features = [
     {
