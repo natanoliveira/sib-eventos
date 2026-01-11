@@ -193,9 +193,9 @@ class ApiClient {
   }
 
   // Tickets endpoints
-  async getTickets(params?: { search?: string; eventId?: string; status?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/tickets${query}`)
+  async getTickets(params?: { search?: string; eventId?: string; status?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/tickets${query}`)
   }
 
   async getTicket(id: string) {
@@ -229,9 +229,9 @@ class ApiClient {
   }
 
   // Payments endpoints
-  async getPayments(params?: { search?: string; status?: string; method?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/payments${query}`)
+  async getPayments(params?: { search?: string; status?: string; method?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/payments${query}`)
   }
 
   async getPayment(id: string) {
@@ -272,16 +272,23 @@ class ApiClient {
     })
   }
 
-  async refundPayment(paymentId: string) {
-    return this.request<{ message: string }>(`/payments/${paymentId}/refund`, {
-      method: 'POST',
+  async cancelPayment(paymentId: string) {
+    return this.request<{ message: string; payment: any }>(`/payments/${paymentId}`, {
+      method: 'DELETE',
     })
   }
 
+  // TODO: Implementar quando integrar com Stripe
+  // async refundPayment(paymentId: string) {
+  //   return this.request<{ message: string }>(`/payments/${paymentId}/refund`, {
+  //     method: 'POST',
+  //   })
+  // }
+
   // Installments endpoints
-  async getInstallments(params?: { paymentId?: string; status?: string }) {
-    const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-    return this.request<any[]>(`/installments${query}`)
+  async getInstallments(params?: { paymentId?: string; status?: string; page?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
+    return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/installments${query}`)
   }
 
   async payInstallment(

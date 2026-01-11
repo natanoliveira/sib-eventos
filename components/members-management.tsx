@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -11,15 +11,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import { ConfirmDialog } from "./confirm-dialog";
+import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { apiClient } from '../lib/api-client';
 import { MEMBER_CATEGORY_OPTIONS } from '../lib/member-categories';
+import { toastError, toastSuccess } from '@/lib/toast';
+import { DataTablePagination } from './data-display/data-table-pagination';
+import { DataTableHeader } from './data-display/data-table-header';
 
 export function MembersManagement() {
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
-  const [totalMembers, setTotalMembers] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -57,7 +60,7 @@ export function MembersManagement() {
 
       const response = await apiClient.getMembers(params);
       setMembers(response.data);
-      setTotalMembers(response.total);
+      setTotalItems(response.total);
       setTotalPages(response.totalPages);
     } catch (error) {
       console.error('Error loading members:', error);
@@ -81,19 +84,17 @@ export function MembersManagement() {
     setCurrentPage(1);
   };
 
-  // Cálculo de índices para exibição
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
 
   const handleAddMember = async () => {
     try {
       setIsSubmitting(true);
       await apiClient.createMember(newMember);
+      toastSuccess('Pessoa adicionada com sucesso!');
       setIsAddDialogOpen(false);
       setNewMember({ name: '', email: '', phone: '', address: '', category: '', notes: '', image: '' });
       await loadMembers();
-    } catch (error) {
-      console.error('Error adding member:', error);
+    } catch (error: any) {
+      toastError(error.message, { title: 'Erro ao adicionar pessoa' });
     } finally {
       setIsSubmitting(false);
     }
@@ -117,12 +118,13 @@ export function MembersManagement() {
     try {
       setIsUpdating(true);
       await apiClient.updateMember(selectedMember.id, newMember);
+      toastSuccess('Pessoa atualizado com sucesso!');
       setIsEditDialogOpen(false);
       setSelectedMember(null);
       setNewMember({ name: '', email: '', phone: '', address: '', category: '', notes: '', image: '' });
       await loadMembers();
-    } catch (error) {
-      console.error('Error updating member:', error);
+    } catch (error: any) {
+      toastError(error.message, { title: 'Erro ao atualizar pessoa' });
     } finally {
       setIsUpdating(false);
     }
@@ -137,10 +139,11 @@ export function MembersManagement() {
     try {
       setIsSubmitting(true);
       await apiClient.deleteMember(selectedMember.id);
+      toastSuccess('Pessoa excluída com sucesso!');
       setSelectedMember(null);
       await loadMembers();
-    } catch (error) {
-      console.error('Error deleting member:', error);
+    } catch (error: any) {
+      toastError(error.message, { title: 'Erro ao excluir pessoa' });
     } finally {
       setIsSubmitting(false);
       setIsDeleteDialogOpen(false);
@@ -322,28 +325,13 @@ export function MembersManagement() {
       {/* Listagem de Pessoas */}
       <Card className="border-blue-200">
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <CardTitle className="text-blue-900">Lista de Membros</CardTitle>
-              <CardDescription>
-                {totalMembers} membros encontrados
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">Itens por página:</span>
-              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <DataTableHeader
+            title="Lista de Membros"
+            totalItems={totalItems}
+            itemLabel="membros"
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -443,6 +431,17 @@ export function MembersManagement() {
                     ))}
                   </TableBody>
                 </Table>
+
+                {/* Pagination */}
+                <DataTablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  loading={loading}
+                />
               </div>
 
               {/* Mobile Card View */}
@@ -515,64 +514,6 @@ export function MembersManagement() {
                 ))}
               </div>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {startIndex + 1} a {Math.min(endIndex, totalMembers)} de {totalMembers} membros
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="border-blue-200"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
-                    </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNumber;
-                        if (totalPages <= 5) {
-                          pageNumber = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNumber = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNumber = totalPages - 4 + i;
-                        } else {
-                          pageNumber = currentPage - 2 + i;
-                        }
-
-                        return (
-                          <Button
-                            key={pageNumber}
-                            variant={currentPage === pageNumber ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePageChange(pageNumber)}
-                            className={currentPage === pageNumber ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200"}
-                          >
-                            {pageNumber}
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="border-blue-200"
-                    >
-                      Próximo
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </CardContent>

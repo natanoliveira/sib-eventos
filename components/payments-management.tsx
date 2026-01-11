@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -9,10 +9,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2 } from "lucide-react";
+import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2, Calendar } from "lucide-react";
+import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { toastSuccess, toastError } from '../lib/toast';
 import { apiClient } from '../lib/api-client';
 import { formatCurrencyBr } from '@/lib/utils';
+import { DataTablePagination } from "./data-display/data-table-pagination";
+import { DataTableHeader } from "./data-display/data-table-header";
 
 export function PaymentsManagement() {
   const [payments, setPayments] = useState<any[]>([]);
@@ -20,18 +23,38 @@ export function PaymentsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedMethod, setSelectedMethod] = useState('all');
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
 
   useEffect(() => {
     loadPayments();
-  }, []);
+  }, [searchTerm, selectedStatus, selectedMethod, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedStatus, selectedMethod]);
 
   const loadPayments = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getPayments();
-      setPayments(data);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedStatus !== 'all') params.status = selectedStatus;
+      if (selectedMethod !== 'all') params.method = selectedMethod;
+
+      const response = await apiClient.getPayments(params);
+      setPayments(response.data);
+      setTotalItems(response.total);
+      setTotalPages(response.totalPages);
     } catch (error: any) {
       toastError('Erro ao carregar pagamentos');
       console.error('Error loading payments:', error);
@@ -39,17 +62,6 @@ export function PaymentsManagement() {
       setLoading(false);
     }
   };
-
-  const filteredPayments = payments.filter(payment => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch =
-      (payment.installment?.invoice?.person?.name || '').toLowerCase().includes(searchLower) ||
-      (payment.installment?.invoice?.person?.email || '').toLowerCase().includes(searchLower) ||
-      payment.id.toLowerCase().includes(searchLower);
-    const matchesStatus = selectedStatus === 'all' || payment.status === selectedStatus;
-    const matchesMethod = selectedMethod === 'all' || payment.method === selectedMethod;
-    return matchesSearch && matchesStatus && matchesMethod;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -100,9 +112,45 @@ export function PaymentsManagement() {
     setIsDetailsOpen(true);
   };
 
-  const handleRefundPayment = (paymentId: string) => {
-    console.log('Processing refund for:', paymentId);
-    toastSuccess('Estorno processado com sucesso!');
+  const handleRefundPayment = (payment: any) => {
+    setPaymentToCancel(payment);
+    setIsCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancelPayment = async () => {
+    if (!paymentToCancel) return;
+
+    try {
+      await apiClient.cancelPayment(paymentToCancel.id);
+      toastSuccess('Pagamento cancelado com sucesso!');
+      setIsCancelDialogOpen(false);
+      setPaymentToCancel(null);
+      setIsDetailsOpen(false);
+      await loadPayments();
+    } catch (error: any) {
+      toastError(error.message || 'Erro ao cancelar pagamento');
+    }
+  };
+
+  // TODO: Implementar quando integrar com Stripe
+  // const handleRefundPaymentWithStripe = async (paymentId: string) => {
+  //   try {
+  //     await apiClient.refundPayment(paymentId);
+  //     toastSuccess('Estorno processado com sucesso no Stripe!');
+  //     await loadPayments();
+  //   } catch (error: any) {
+  //     toastError(error.message || 'Erro ao processar estorno');
+  //   }
+  // };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   const totalRevenue = payments
@@ -212,10 +260,13 @@ export function PaymentsManagement() {
       {/* Payments Table */}
       <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-900">Histórico de Pagamentos</CardTitle>
-          <CardDescription>
-            {filteredPayments.length} transações encontradas
-          </CardDescription>
+          <DataTableHeader
+            title="Histórico de Pagamentos"
+            totalItems={totalItems}
+            itemLabel="transações"
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -223,108 +274,210 @@ export function PaymentsManagement() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID / Participante</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPayments.map((payment) => {
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID / Participante</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((payment) => {
+                      const memberName = payment.installment?.invoice?.person?.name || 'N/A';
+                      const memberEmail = payment.installment?.invoice?.person?.email || 'N/A';
+                      const eventTitle = payment.installment?.invoice?.event?.title || 'N/A';
+
+                      return (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-blue-900 text-sm">{payment.paymentNumber || payment.id}</div>
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-8 w-8 border border-blue-200">
+                                  <AvatarImage src="" alt={memberName} />
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                                    {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm">{memberName}</div>
+                                  <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="text-sm text-blue-900">{eventTitle}</div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="text-blue-900">
+                              R$ {formatCurrencyBr(payment.amount)}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              {getMethodIcon(payment.method)}
+                              <span className="text-sm">{getMethodLabel(payment.method)}</span>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge className={getStatusColor(payment.status)}>
+                              {getStatusLabel(payment.status)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="text-sm">
+                              {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50"
+                                onClick={() => handleViewDetails(payment)}
+                              >
+                                <FileText className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              {payment.status === 'PAID' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-red-50"
+                                  onClick={() => handleRefundPayment(payment)}
+                                >
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+
+                    {payments.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          Nenhum pagamento encontrado
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <DataTablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  loading={loading}
+                />
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {payments.map((payment) => {
                   const memberName = payment.installment?.invoice?.person?.name || 'N/A';
                   const memberEmail = payment.installment?.invoice?.person?.email || 'N/A';
                   const eventTitle = payment.installment?.invoice?.event?.title || 'N/A';
 
                   return (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-blue-900 text-sm">{payment.paymentNumber || payment.id}</div>
-                          <div className="flex items-center space-x-2">
-                            <Avatar className="h-8 w-8 border border-blue-200">
+                    <Card key={payment.id} className="border-blue-200">
+                      <CardContent className="p-4">
+                        {/* Header com Avatar */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-12 w-12 border-2 border-blue-200">
                               <AvatarImage src="" alt={memberName} />
-                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800 text-xs">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
                                 {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="text-sm">{memberName}</div>
-                              <div className="text-xs text-muted-foreground">{memberEmail}</div>
+                              <div className="text-blue-900 font-medium">{memberName}</div>
+                              <div className="text-xs text-muted-foreground break-all">{memberEmail}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={`${getStatusColor(payment.status)} text-xs`}>
+                                  {getStatusLabel(payment.status)}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell>
-                        <div className="text-sm text-blue-900">{eventTitle}</div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="text-blue-900">
-                          R$ {formatCurrencyBr(payment.amount)}
+                        {/* Detalhes */}
+                        <div className="space-y-2 mb-4">
+                          <div className="text-sm flex items-center">
+                            <FileText className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span className="text-blue-900">{payment.paymentNumber || payment.id}</span>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span>{eventTitle}</span>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            {getMethodIcon(payment.method)}
+                            <span className="ml-2">{getMethodLabel(payment.method)}</span>
+                          </div>
+                          <div className="text-sm flex items-center">
+                            <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <span className="text-sm text-muted-foreground">Valor</span>
+                            <span className="text-lg font-medium text-blue-900">
+                              R$ {formatCurrencyBr(payment.amount)}
+                            </span>
+                          </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {getMethodIcon(payment.method)}
-                          <span className="text-sm">{getMethodLabel(payment.method)}</span>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge className={getStatusColor(payment.status)}>
-                          {getStatusLabel(payment.status)}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="text-sm">
-                          {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : 'N/A'}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center space-x-1">
+                        {/* Ações */}
+                        <div className="flex gap-2 pt-4 border-t">
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
                             onClick={() => handleViewDetails(payment)}
                           >
-                            <FileText className="h-4 w-4 text-blue-600" />
+                            <FileText className="h-4 w-4 mr-2" />
+                            Detalhes
                           </Button>
                           {payment.status === 'PAID' && (
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-red-50"
-                              onClick={() => handleRefundPayment(payment.id)}
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => handleRefundPayment(payment)}
                             >
-                              <XCircle className="h-4 w-4 text-red-600" />
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Estornar
                             </Button>
                           )}
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-
-                {filteredPayments.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Nenhum pagamento encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -409,7 +562,7 @@ export function PaymentsManagement() {
                   <div className="pt-4 border-t">
                     <Button
                       variant="outline"
-                      onClick={() => handleRefundPayment(selectedPayment.id)}
+                      onClick={() => handleRefundPayment(selectedPayment)}
                       className="w-full border-red-200 text-red-600 hover:bg-red-50"
                     >
                       <XCircle className="w-4 h-4 mr-2" />
@@ -422,6 +575,28 @@ export function PaymentsManagement() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Payment Confirmation Dialog */}
+      <ConfirmDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        title="Cancelar Pagamento"
+        description={
+          paymentToCancel ? (
+            <>
+              Tem certeza de que deseja cancelar o pagamento de{' '}
+              <strong> {paymentToCancel.installment?.invoice?.person?.name.toUpperCase() || 'N/A'} </strong> ? O valor de R${' '}
+              <strong> {formatCurrencyBr(paymentToCancel.amount)}</strong>{' '}
+              será estornado e a parcela voltará ao status <strong>PENDENTE</strong>.
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Cancelar Pagamento"
+        onConfirm={handleConfirmCancelPayment}
+        destructive
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { MemberCategory, Prisma, RegistrationStatus, UserStatus } from '@prisma/client';
+import { Prisma, RegistrationStatus, UserStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
 const FIRST_NAMES = [
@@ -47,14 +47,14 @@ const LAST_NAMES = [
   'Vieira',
 ];
 
-const CATEGORIES: MemberCategory[] = [
-  MemberCategory.MEMBRO_ATIVO,
-  MemberCategory.MEMBRO_NOVO,
-  MemberCategory.VISITANTE,
-  MemberCategory.MEMBRO_REGULAR,
-  MemberCategory.MEMBRO_VISITANTE,
-  MemberCategory.ADULTO,
-  MemberCategory.JOVEM,
+const CATEGORIES: string[] = [
+  'MEMBRO_ATIVO',
+  'MEMBRO_NOVO',
+  'VISITANTE',
+  'MEMBRO_REGULAR',
+  'MEMBRO_VISITANTE',
+  'ADULTO',
+  'JOVEM',
 ];
 
 const STREETS = [
@@ -96,7 +96,6 @@ export function buildFakePeopleAndMemberships(options: {
     const joinYear = 2020 + (i % 5);
     const joinMonth = i % 12;
     const joinDay = (i % 28) + 1;
-    const phoneSuffix = String(1000 + (i % 9000));
     const addressNumber = 100 + (i % 900);
     const street = STREETS[(i * 3) % STREETS.length];
     const emailIndex = String(i + 1).padStart(5, '0');

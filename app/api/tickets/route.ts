@@ -11,6 +11,8 @@ export const GET = requireAuth(
       const eventId = searchParams.get('eventId');
       const status = searchParams.get('status');
       const search = searchParams.get('search');
+      const page = parseInt(searchParams.get('page') || '1');
+      const limit = parseInt(searchParams.get('limit') || '10');
 
       const where: any = {};
       if (personId) where.personId = personId;
@@ -20,6 +22,10 @@ export const GET = requireAuth(
         where.ticketNumber = { contains: search, mode: 'insensitive' };
       }
 
+      // Contar total de registros
+      const total = await prisma.ticket.count({ where });
+
+      // Buscar dados paginados
       const tickets = await prisma.ticket.findMany({
         where,
         include: {
@@ -61,9 +67,19 @@ export const GET = requireAuth(
         orderBy: {
           createdAt: 'desc',
         },
+        skip: (page - 1) * limit,
+        take: limit,
       });
 
-      return NextResponse.json(tickets);
+      const totalPages = Math.ceil(total / limit);
+
+      return NextResponse.json({
+        data: tickets,
+        total,
+        page,
+        limit,
+        totalPages,
+      });
     } catch (error) {
       console.error('Error fetching tickets:', error);
       return NextResponse.json(

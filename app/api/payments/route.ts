@@ -5,12 +5,11 @@ import { requireAuth } from '@/lib/auth-utils';
 export const GET = requireAuth(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
-    console.log();
-    console.log(searchParams);
-    console.log();
     const personId = searchParams.get('personId');
     const eventId = searchParams.get('eventId');
     const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     // Build where clause for filtering via relationships
     const where: any = {};
@@ -29,6 +28,10 @@ export const GET = requireAuth(async (request: NextRequest) => {
       };
     }
 
+    // Contar total de registros
+    const total = await prisma.payment.count({ where });
+
+    // Buscar dados paginados
     const payments = await prisma.payment.findMany({
       where,
       include: {
@@ -58,9 +61,19 @@ export const GET = requireAuth(async (request: NextRequest) => {
       orderBy: {
         createdAt: 'desc',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return NextResponse.json(payments);
+    const totalPages = Math.ceil(total / limit);
+
+    return NextResponse.json({
+      data: payments,
+      total,
+      page,
+      limit,
+      totalPages,
+    });
   } catch (error) {
     console.error('Error fetching payments:', error);
     return NextResponse.json(

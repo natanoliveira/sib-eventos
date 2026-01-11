@@ -1,5 +1,5 @@
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 import {
   Home,
   Users,

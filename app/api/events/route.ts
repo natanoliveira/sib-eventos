@@ -5,12 +5,13 @@ import { errorResponse } from '@/lib/api-response';
 import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 
 /**
- * GET /api/events - Listar eventos
+ * GET /api/events - Listar eventos com paginação
  *
  * Proteções implementadas:
  * - Rate limiting: 60 requests/minuto
  * - Filtra apenas eventos não removidos
  * - Não expõe informações sensíveis (passwords, etc.)
+ * - Paginação server-side
  */
 async function getEventsHandler(request: NextRequest) {
   try {
@@ -18,8 +19,10 @@ async function getEventsHandler(request: NextRequest) {
     const status = searchParams.get('status');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
-    const where: any = {};
+    const where: any = { removed: false };
     if (status) where.status = status;
     if (category) where.category = category;
     if (search) {
@@ -30,33 +33,42 @@ async function getEventsHandler(request: NextRequest) {
       ];
     }
 
+    // Contar total de registros
+    const total = await prisma.event.count({ where });
+
+    // Buscar dados paginados
     const events = await prisma.event.findMany({
-      where: {
-        removed: false,
-        ...where,
-      },
+      where,
       include: {
         creator: {
           select: {
             id: true,
             name: true,
-            // Não expor email do criador publicamente
           },
         },
         _count: {
           select: {
             memberships: true,
             tickets: true,
-            // Não expor contagem de invoices publicamente
           },
         },
       },
       orderBy: {
         startDate: 'desc',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return NextResponse.json(events);
+    const totalPages = Math.ceil(total / limit);
+
+    return NextResponse.json({
+      data: events,
+      total,
+      page,
+      limit,
+      totalPages,
+    });
   } catch (error) {
     return errorResponse('Erro ao buscar eventos', 500, error);
   }

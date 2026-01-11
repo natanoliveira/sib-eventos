@@ -43,19 +43,18 @@ async function registerEventHandler(request: NextRequest, context: any) {
       );
     }
 
-    // Verificar se já existe inscrição
-    const existingRegistration = await prisma.eventMembership.findUnique({
+    // Verificar se já existe inscrição CONFIRMADA ou PENDENTE
+    const existingRegistration = await prisma.eventMembership.findFirst({
       where: {
-        personId_eventId: {
-          personId,
-          eventId,
-        },
+        personId,
+        eventId,
+        status: { in: ['CONFIRMED', 'PENDING'] },
       },
     });
 
     if (existingRegistration) {
       return NextResponse.json(
-        { error: 'Você já está inscrito neste evento' },
+        { error: 'Você já possui uma inscrição confirmada ou pendente neste evento' },
         { status: 400 }
       );
     }

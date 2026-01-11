@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardSidebar } from '@/components/dashboard-sidebar';
-import { DashboardHeader } from '@/components/dashboard-header';
+import { DashboardSidebar } from '@/components/layout/dashboard-sidebar';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { MembersManagement } from '@/components/members-management';
 import { EventsManagement } from '@/components/events-management';

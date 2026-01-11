@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -10,11 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Search, Plus, UserCheck, UserX, Calendar, X, Loader2 } from "lucide-react";
-import { ConfirmDialog } from "./confirm-dialog";
+import { Search, Plus, UserCheck, UserX, Calendar, X, Loader2, Mail, Phone } from "lucide-react";
+import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { apiClient } from '../lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { toastError, toastSuccess, toastWarning } from '@/lib/toast';
+import { DataTablePagination } from "./data-display/data-table-pagination";
+import { DataTableHeader } from "./data-display/data-table-header";
 
 interface Member {
   id: string;
@@ -40,14 +42,16 @@ interface Event {
 }
 
 export function EventRegistrations() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const [registrations, setRegistrations] = useState<any[]>([]);
-  // const [members, setMembers] = useState<any[]>([]);
-  // const [events, setEvents] = useState<any[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null);
@@ -57,7 +61,6 @@ export function EventRegistrations() {
     eventId: '',
   });
 
-  // const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Member[]>([]);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -70,21 +73,33 @@ export function EventRegistrations() {
 
   useEffect(() => {
     loadData();
-    // setMounted(true);
-  }, []);
+  }, [searchTerm, selectedEvent, selectedStatus, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedEvent, selectedStatus]);
 
   const loadData = async () => {
     try {
       setLoading(true);
+
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedEvent !== 'all') params.eventId = selectedEvent;
+      if (selectedStatus !== 'all') params.status = selectedStatus;
+
       const [regsData, eventsData] = await Promise.all([
-        apiClient.getEventRegistrations(),
+        apiClient.getEventRegistrations(params),
         apiClient.getEvents({})
       ]);
-      setRegistrations(regsData);
-      setEvents(eventsData);
 
-      // const eventsData = await apiClient.getEvents({ status: 'ACTIVE' });
-      // setEvents(eventsData);
+      setRegistrations(regsData.data);
+      setTotalItems(regsData.total);
+      setTotalPages(regsData.totalPages);
+      setEvents(eventsData.data);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -144,13 +159,15 @@ export function EventRegistrations() {
     setSearchResults([]);
   };
 
-  const filteredRegistrations = registrations.filter(reg => {
-    const matchesSearch = reg.person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reg.event.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEvent = selectedEvent === 'all' || reg.eventId === selectedEvent;
-    const matchesStatus = selectedStatus === 'all' || reg.status === selectedStatus;
-    return matchesSearch && matchesEvent && matchesStatus;
-  });
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const handleAddRegistration = async () => {
     if (!selectedMember || !newRegistration.eventId) return;
@@ -406,10 +423,13 @@ export function EventRegistrations() {
       {/* Registrations Table */}
       <Card className="border-blue-200">
         <CardHeader>
-          <CardTitle className="text-blue-900">Lista de Inscrições</CardTitle>
-          <CardDescription>
-            {filteredRegistrations.length} inscrições encontradas
-          </CardDescription>
+          <DataTableHeader
+            title="Lista de Inscrições"
+            totalItems={totalItems}
+            itemLabel="inscrições"
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -417,89 +437,198 @@ export function EventRegistrations() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Membro</TableHead>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Data de Inscrição</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRegistrations.map((reg) => (
-                  <TableRow key={reg.id}>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10 border-2 border-blue-200">
-                          <AvatarImage src={reg.person.image} alt={reg.person.name} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
-                            {reg.person.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="text-blue-900">{reg.person.name}</div>
-                          <div className="text-sm text-muted-foreground">{reg.person.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Membro</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>Data de Inscrição</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {registrations.map((reg) => (
+                      <TableRow key={reg.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-10 w-10 border-2 border-blue-200">
+                              <AvatarImage src={reg.person.image} alt={reg.person.name} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                                {reg.person.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-blue-900">{reg.person.name}</div>
+                              <div className="text-sm text-muted-foreground">{reg.person.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
 
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
-                        <div>
-                          <div className="text-blue-900">{reg.event.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(reg.event.date || reg.event.startDate).toLocaleDateString('pt-BR')}
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
+                            <div>
+                              <div className="text-blue-900">{reg.event.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {new Date(reg.event.date || reg.event.startDate).toLocaleDateString('pt-BR')}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {new Date(reg.registeredAt).toLocaleDateString('pt-BR')}
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge className={getStatusColor(reg.status)}>
+                            {getStatusLabel(reg.status)}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {reg.status === 'PENDING' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 hover:bg-green-50"
+                                onClick={() => handleConfirmRegistration(reg.id)}
+                              >
+                                <UserCheck className="h-4 w-4 text-green-600 mr-1" />
+                                Confirmar
+                              </Button>
+                            )}
+                            {reg.status !== 'CANCELLED' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 hover:bg-red-50"
+                                onClick={() => {
+                                  setSelectedRegistration(reg);
+                                  setIsCancelDialogOpen(true);
+                                }}
+                              >
+                                <UserX className="h-4 w-4 text-red-600 mr-1" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <DataTablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  loading={loading}
+                />
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {registrations.map((reg) => {
+                  const memberName = reg.person.name;
+                  const memberEmail = reg.person.email;
+                  const memberPhone = reg.person.phone;
+                  const eventTitle = reg.event.title;
+                  const eventDate = reg.event.date || reg.event.startDate;
+
+                  return (
+                    <Card key={reg.id} className="border-blue-200">
+                      <CardContent className="p-4">
+                        {/* Header com Avatar */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-12 w-12 border-2 border-blue-200">
+                              <AvatarImage src={reg.person.image} alt={memberName} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-200 text-blue-800">
+                                {memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="text-blue-900 font-medium">{memberName}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={`${getStatusColor(reg.status)} text-xs`}>
+                                  {getStatusLabel(reg.status)}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </TableCell>
 
-                    <TableCell>
-                      {new Date(reg.registeredAt).toLocaleDateString('pt-BR')}
-                    </TableCell>
+                        {/* Detalhes */}
+                        <div className="space-y-2 mb-4">
+                          <div className="text-sm flex items-center">
+                            <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span className="break-all">{memberEmail}</span>
+                          </div>
+                          {memberPhone && (
+                            <div className="text-sm flex items-center">
+                              <Phone className="w-4 h-4 mr-2 text-muted-foreground" />
+                              <span>{memberPhone}</span>
+                            </div>
+                          )}
+                          <div className="text-sm flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <div>
+                              <div className="text-blue-900">{eventTitle}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(eventDate).toLocaleDateString('pt-BR')}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-sm flex items-center text-muted-foreground">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            <span>Inscrito em: {new Date(reg.registeredAt).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        </div>
 
-                    <TableCell>
-                      <Badge className={getStatusColor(reg.status)}>
-                        {getStatusLabel(reg.status)}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {reg.status === 'PENDING' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 hover:bg-green-50"
-                            onClick={() => handleConfirmRegistration(reg.id)}
-                          >
-                            <UserCheck className="h-4 w-4 text-green-600 mr-1" />
-                            Confirmar
-                          </Button>
-                        )}
-                        {reg.status !== 'CANCELLED' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 hover:bg-red-50"
-                            onClick={() => {
-                              setSelectedRegistration(reg);
-                              setIsCancelDialogOpen(true);
-                            }}
-                          >
-                            <UserX className="h-4 w-4 text-red-600 mr-1" />
-                            Cancelar
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        {/* Ações */}
+                        <div className="flex gap-2 pt-4 border-t">
+                          {reg.status === 'PENDING' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
+                              onClick={() => handleConfirmRegistration(reg.id)}
+                            >
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Confirmar
+                            </Button>
+                          )}
+                          {reg.status !== 'CANCELLED' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setSelectedRegistration(reg);
+                                setIsCancelDialogOpen(true);
+                              }}
+                            >
+                              <UserX className="h-4 w-4 mr-2" />
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

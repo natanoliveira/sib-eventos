@@ -115,23 +115,28 @@ export const POST = requireAuth(
         }
 
         // 4. Criar ou atualizar inscrição no evento
-        await tx.eventMembership.upsert({
+        const existingMembership = await tx.eventMembership.findFirst({
           where: {
-            personId_eventId: {
-              personId,
-              eventId,
-            },
-          },
-          create: {
             personId,
             eventId,
-            status: 'CONFIRMED',
-            createdByUserId: context.user.id,
-          },
-          update: {
-            status: 'CONFIRMED',
           },
         });
+
+        if (existingMembership) {
+          await tx.eventMembership.update({
+            where: { id: existingMembership.id },
+            data: { status: 'CONFIRMED' },
+          });
+        } else {
+          await tx.eventMembership.create({
+            data: {
+              personId,
+              eventId,
+              status: 'CONFIRMED',
+              createdByUserId: context.user.id,
+            },
+          });
+        }
 
         return { invoice, installments: createdInstallments, tickets };
       });

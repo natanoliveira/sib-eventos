@@ -15,11 +15,16 @@ import { Calendar, Plus, Edit2, Trash2, Users, MapPin, DollarSign, Loader2 } fro
 import { apiClient } from '../lib/api-client';
 import { toastSuccess, toastError } from '../lib/toast';
 import { formatCurrencyBr } from '@/lib/utils';
+import { DataTablePagination } from "./data-display/data-table-pagination";
 
 export function EventsManagement() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -48,13 +53,25 @@ export function EventsManagement() {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [searchTerm, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const loadEvents = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getEvents();
-      setEvents(data);
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      if (searchTerm) params.search = searchTerm;
+
+      const response = await apiClient.getEvents(params);
+      setEvents(response.data);
+      setTotalItems(response.total);
+      setTotalPages(response.totalPages);
     } catch (error: any) {
       toastError('Erro ao carregar eventos');
       console.error('Error loading events:', error);
@@ -62,11 +79,6 @@ export function EventsManagement() {
       setLoading(false);
     }
   };
-
-  const filteredEvents = events.filter(event =>
-    event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   const handleAddEvent = async () => {
     try {
@@ -190,6 +202,16 @@ export function EventsManagement() {
       case 'Geral': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
   };
 
   return (
@@ -348,7 +370,7 @@ export function EventsManagement() {
           <div className="col-span-full flex justify-center items-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
-        ) : filteredEvents.map((event) => {
+        ) : events.map((event) => {
           const registered = event._count?.memberships || 0;
           const progressPercentage = (registered / event.capacity) * 100;
           const formatDate = (dateStr: string) => {
@@ -433,7 +455,7 @@ export function EventsManagement() {
         })}
       </div>
 
-      {filteredEvents.length === 0 && (
+      {!loading && events.length === 0 && (
         <Card className="border-blue-200">
           <CardContent className="text-center py-8">
             <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -443,6 +465,19 @@ export function EventsManagement() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {!loading && events.length > 0 && (
+        <DataTablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          totalItems={totalItems}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          loading={loading}
+        />
       )}
 
       {/* Edit Event Dialog */}

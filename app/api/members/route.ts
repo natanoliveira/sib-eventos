@@ -24,7 +24,7 @@ export const GET = requireAuth(
         );
       }
       if (parsedCategory.value !== undefined && parsedCategory.value !== null) {
-        where.category = category;
+        where.category = parsedCategory.value;
       }
 
       console.log();
