@@ -2,20 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { formatMemberCategory, parseMemberCategoryInput } from '@/lib/member-categories';
+import { getMembersQuerySchema, createMemberSchema } from '@/lib/validations';
+import { validateQuery, validateBody } from '@/lib/validation-middleware';
 
 // GET /api/members - Listar pessoas/membros com paginação
+// Protegido com validação Zod
 export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
-      const { searchParams } = new URL(request.url);
-      const status = searchParams.get('status');
-      const category = searchParams.get('category');
-      const search = searchParams.get('search');
-      const page = parseInt(searchParams.get('page') || '1');
-      const limit = parseInt(searchParams.get('limit') || '10');
+      // Valida query parameters com Zod
+      const validation = validateQuery(request, getMembersQuerySchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
+      const { page, limit, search, category, status } = validation.data;
 
       const where: any = {};
       if (status) where.status = status;
+
       const parsedCategory = parseMemberCategoryInput(category);
       if (!parsedCategory.isValid) {
         return NextResponse.json(
@@ -26,7 +32,7 @@ export const GET = requireAuth(
       if (parsedCategory.value !== undefined && parsedCategory.value !== null) {
         where.category = parsedCategory.value;
       }
-      
+
       if (search) {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
@@ -73,18 +79,18 @@ export const GET = requireAuth(
 );
 
 // POST /api/members - Criar pessoa/membro
+// Protegido com validação Zod + sanitização
 export const POST = requireAuth(
   async (request: NextRequest) => {
     try {
-      const body = await request.json();
-      const { name, email, phone, address, category, status, notes, image } = body;
+      // Valida e sanitiza body com Zod
+      const validation = await validateBody(request, createMemberSchema);
 
-      if (!name || !email) {
-        return NextResponse.json(
-          { error: 'Nome e e-mail são obrigatórios' },
-          { status: 400 }
-        );
+      if (!validation.success) {
+        return validation.error;
       }
+
+      const { name, email, phone, address, category, notes, image } = validation.data;
 
       // Verificar se email já existe
       const existing = await prisma.person.findUnique({
@@ -110,12 +116,12 @@ export const POST = requireAuth(
         data: {
           name,
           email,
-          phone,
-          address,
+          phone: phone || undefined,
+          address: address || undefined,
           ...(parsedCategory.value !== undefined && { category: parsedCategory.value }),
-          status: status || 'ACTIVE',
-          notes,
-          image,
+          status: 'ACTIVE',
+          notes: notes || undefined,
+          image: image || undefined,
         },
       });
 

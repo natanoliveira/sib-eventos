@@ -2,37 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { errorResponse } from '@/lib/api-response';
+import { updateRegistrationSchema, cancelRegistrationSchema } from '@/lib/validations';
+import { validateBody, validateParams } from '@/lib/validation-middleware';
 
 /**
  * PUT /api/event-registrations/[id] - Atualizar inscrição
- *
- * Body:
- * - status: PENDING | CONFIRMED | CANCELLED
+ * Protegido com validação Zod + sanitização
  */
 async function updateRegistrationHandler(
   request: NextRequest,
   context: any
 ) {
   try {
-    const id = context.params.id;
-    const body = await request.json();
-    const { status } = body;
+    // Valida route params
+    const paramsValidation = validateParams(context.params, cancelRegistrationSchema);
 
-    if (!status) {
-      return NextResponse.json(
-        { error: 'Status é obrigatório' },
-        { status: 400 }
-      );
+    if (!paramsValidation.success) {
+      return paramsValidation.error;
     }
 
-    // Validar status
-    const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED'];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Status inválido' },
-        { status: 400 }
-      );
+    const { id } = paramsValidation.data;
+
+    // Valida e sanitiza body com Zod
+    const validation = await validateBody(request, updateRegistrationSchema);
+
+    if (!validation.success) {
+      return validation.error;
     }
+
+    const { status } = validation.data;
 
     // Verificar se a inscrição existe
     const existingRegistration = await prisma.eventMembership.findUnique({
@@ -111,7 +109,14 @@ async function deleteRegistrationHandler(
   context: any
 ) {
   try {
-    const id = context.params.id;
+    // Valida route params
+    const validation = validateParams(context.params, cancelRegistrationSchema);
+
+    if (!validation.success) {
+      return validation.error;
+    }
+
+    const { id } = validation.data;
 
     // Verificar se a inscrição existe
     const existingRegistration = await prisma.eventMembership.findUnique({

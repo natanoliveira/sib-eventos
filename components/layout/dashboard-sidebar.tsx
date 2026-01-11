@@ -14,6 +14,7 @@ import {
   FileText,
   CalendarCheck
 } from "lucide-react";
+import { usePermissions } from '@/lib/use-permissions';
 
 interface SidebarProps {
   activeTab: string;
@@ -22,7 +23,14 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const menuItems = [
+interface MenuItem {
+  id: string;
+  icon: any;
+  label: string;
+  adminOnly?: boolean;
+}
+
+const menuItems: MenuItem[] = [
   { id: 'dashboard', icon: Home, label: 'Dashboard' },
   { id: 'members', icon: Users, label: 'Pessoas' },
   { id: 'events', icon: Calendar, label: 'Eventos' },
@@ -32,10 +40,11 @@ const menuItems = [
   { id: 'tickets', icon: Ticket, label: 'Passaportes' },
   { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
   { id: 'reports', icon: BarChart3, label: 'Relatórios' },
-  { id: 'settings', icon: Settings, label: 'Configurações' },
+  { id: 'settings', icon: Settings, label: 'Configurações', adminOnly: true },
 ];
 
 export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: SidebarProps) {
+  const { isAdmin } = usePermissions();
   return (
     <>
       {/* Mobile overlay */}
@@ -75,25 +84,27 @@ export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: Si
           </Button>
 
           <nav className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Button
-                  key={item.id}
-                  variant={activeTab === item.id ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full justify-start",
-                    activeTab === item.id
-                      ? "bg-blue-100 text-blue-900 hover:bg-blue-200"
-                      : "text-blue-700 hover:bg-blue-100"
-                  )}
-                  onClick={() => onTabChange(item.id)}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </Button>
-              );
-            })}
+            {menuItems
+              .filter(item => !item.adminOnly || isAdmin())
+              .map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Button
+                    key={item.id}
+                    variant={activeTab === item.id ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start",
+                      activeTab === item.id
+                        ? "bg-blue-100 text-blue-900 hover:bg-blue-200"
+                        : "text-blue-700 hover:bg-blue-100"
+                    )}
+                    onClick={() => onTabChange(item.id)}
+                  >
+                    <Icon className="w-4 h-4 mr-2" />
+                    {item.label}
+                  </Button>
+                );
+              })}
           </nav>
         </div>
       </aside> */}
@@ -120,25 +131,27 @@ export function DashboardSidebar({ activeTab, onTabChange, isOpen, onClose }: Si
           </Button>
 
           <nav className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Button
-                  key={item.id}
-                  variant={activeTab === item.id ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full justify-start",
-                    activeTab === item.id
-                      ? "bg-blue-100 text-blue-900 hover:bg-blue-200"
-                      : "text-blue-700 hover:bg-blue-100"
-                  )}
-                  onClick={() => onTabChange(item.id)}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </Button>
-              );
-            })}
+            {menuItems
+              .filter(item => !item.adminOnly || isAdmin())
+              .map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Button
+                    key={item.id}
+                    variant={activeTab === item.id ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start",
+                      activeTab === item.id
+                        ? "bg-blue-100 text-blue-900 hover:bg-blue-200"
+                        : "text-blue-700 hover:bg-blue-100"
+                    )}
+                    onClick={() => onTabChange(item.id)}
+                  >
+                    <Icon className="w-4 h-4 mr-2" />
+                    {item.label}
+                  </Button>
+                );
+              })}
           </nav>
         </div>
       </aside>

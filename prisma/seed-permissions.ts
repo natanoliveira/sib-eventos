@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { PERMISSION_DEFINITIONS } from '../lib/permissions';
 
-const prisma = new PrismaClient();
+export async function seedPermissions(prismaClient?: PrismaClient) {
+  const prisma = prismaClient || new PrismaClient();
 
-export async function seedPermissions() {
   console.log('🔐 Seeding permissions...');
 
   // Criar ou atualizar todas as permissões
@@ -25,11 +25,18 @@ export async function seedPermissions() {
   }
 
   console.log(`✅ Created/Updated ${PERMISSION_DEFINITIONS.length} permissions`);
+
+  // Se criamos um novo cliente, desconectar
+  if (!prismaClient) {
+    await prisma.$disconnect();
+  }
 }
 
 // Executar se chamado diretamente
 if (require.main === module) {
-  seedPermissions()
+  const prisma = new PrismaClient();
+
+  seedPermissions(prisma)
     .then(() => {
       console.log('✅ Permissions seeded successfully');
       process.exit(0);

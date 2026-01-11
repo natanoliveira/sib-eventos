@@ -1,6 +1,8 @@
 import { PrismaClient, UserRole, UserStatus, EventStatus, RegistrationStatus, TicketStatus, PaymentMethod, PaymentStatus, InstallmentStatus, InvoiceStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { buildFakePeopleAndMemberships } from './seed-fake-data';
+import { seedPermissions } from './seed-permissions';
+import { DEFAULT_PERMISSIONS_BY_ROLE, PermissionCode } from '../lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -22,27 +24,11 @@ async function main() {
   await prisma.person.deleteMany();
   await prisma.user.deleteMany();
 
-  // 1. CRIAÇÃO DE PERMISSÕES
-  console.log('🔐 Criando permissões...');
-  const permissions = await Promise.all([
-    prisma.permission.create({ data: { code: 'events.view', name: 'Visualizar Eventos', module: 'events' } }),
-    prisma.permission.create({ data: { code: 'events.create', name: 'Criar Eventos', module: 'events' } }),
-    prisma.permission.create({ data: { code: 'events.edit', name: 'Editar Eventos', module: 'events' } }),
-    prisma.permission.create({ data: { code: 'events.delete', name: 'Deletar Eventos', module: 'events' } }),
-    prisma.permission.create({ data: { code: 'members.view', name: 'Visualizar Membros', module: 'members' } }),
-    prisma.permission.create({ data: { code: 'members.create', name: 'Criar Membros', module: 'members' } }),
-    prisma.permission.create({ data: { code: 'members.edit', name: 'Editar Membros', module: 'members' } }),
-    prisma.permission.create({ data: { code: 'members.delete', name: 'Deletar Membros', module: 'members' } }),
-    prisma.permission.create({ data: { code: 'payments.view', name: 'Visualizar Pagamentos', module: 'payments' } }),
-    prisma.permission.create({ data: { code: 'payments.create', name: 'Criar Pagamentos', module: 'payments' } }),
-    prisma.permission.create({ data: { code: 'payments.refund', name: 'Reembolsar Pagamentos', module: 'payments' } }),
-    prisma.permission.create({ data: { code: 'tickets.view', name: 'Visualizar Tickets', module: 'tickets' } }),
-    prisma.permission.create({ data: { code: 'tickets.create', name: 'Criar Tickets', module: 'tickets' } }),
-    prisma.permission.create({ data: { code: 'tickets.cancel', name: 'Cancelar Tickets', module: 'tickets' } }),
-    prisma.permission.create({ data: { code: 'dashboard.view', name: 'Visualizar Dashboard', module: 'dashboard' } }),
-  ]);
+  // 1. CRIAÇÃO DE PERMISSÕES (usando sistema completo)
+  await seedPermissions(prisma);
 
-  console.log(`✅ ${permissions.length} permissões criadas!`);
+  // Buscar todas as permissões criadas
+  const allPermissions = await prisma.permission.findMany();
 
   // 2. CRIAÇÃO DE USUÁRIOS (Administradores e Líderes com autenticação)
   console.log('👥 Criando usuários...');
@@ -151,19 +137,38 @@ async function main() {
     }),
   ]);
 
-  // 4. ATRIBUIÇÃO DE PERMISSÕES
-  console.log('🔑 Atribuindo permissões...');
+  // 4. ATRIBUIÇÃO DE PERMISSÕES (baseado no role)
+  console.log('🔑 Atribuindo permissões baseadas em roles...');
+
+  // Atribuir permissões para o Admin (todas as permissões)
+  const adminPermissionCodes = DEFAULT_PERMISSIONS_BY_ROLE.ADMIN as PermissionCode[];
+  const adminPermissionsToAssign = allPermissions
+    .filter(p => adminPermissionCodes.includes(p.code as PermissionCode))
+    .map(p => ({
+      userId: admin.id,
+      permissionId: p.id,
+      grantedBy: admin.id,
+    }));
 
   await prisma.userPermission.createMany({
-    data: [
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'events.view')!.id, grantedBy: admin.id },
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'members.view')!.id, grantedBy: admin.id },
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'members.edit')!.id, grantedBy: admin.id },
-      { userId: leader1.id, permissionId: permissions.find(p => p.code === 'dashboard.view')!.id, grantedBy: admin.id },
-    ],
+    data: adminPermissionsToAssign,
   });
 
-  console.log('✅ Permissões atribuídas!');
+  // Atribuir permissões para o Leader
+  const leaderPermissionCodes = DEFAULT_PERMISSIONS_BY_ROLE.LEADER as PermissionCode[];
+  const leaderPermissionsToAssign = allPermissions
+    .filter(p => leaderPermissionCodes.includes(p.code as PermissionCode))
+    .map(p => ({
+      userId: leader1.id,
+      permissionId: p.id,
+      grantedBy: admin.id,
+    }));
+
+  await prisma.userPermission.createMany({
+    data: leaderPermissionsToAssign,
+  });
+
+  console.log(`✅ Permissões atribuídas! (${adminPermissionsToAssign.length} para ADMIN, ${leaderPermissionsToAssign.length} para LEADER)`);
 
   // 5. CRIAÇÃO DE EVENTOS
   console.log('📅 Criando eventos...');
@@ -464,7 +469,7 @@ async function main() {
 
   console.log('\n✅ Seed concluído com sucesso!');
   console.log('\n📊 Dados criados:');
-  console.log(`   🔐 ${permissions.length} permissões`);
+  console.log(`   🔐 ${allPermissions.length} permissões`);
   console.log(`   👥 2 usuários (1 admin, 1 líder)`);
   console.log(`   👤 ${persons.length + fakeSeed.persons.length} pessoas (membros)`);
   console.log(`   📅 ${allEvents.length} eventos`);

@@ -9,15 +9,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2, Calendar } from "lucide-react";
+import { Search, DollarSign, CheckCircle, XCircle, Clock, CreditCard, Zap, FileText, Loader2, Calendar, AlertCircle } from "lucide-react";
 import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { toastSuccess, toastError } from '../lib/toast';
 import { apiClient } from '../lib/api-client';
 import { formatCurrencyBr } from '@/lib/utils';
 import { DataTablePagination } from "./data-display/data-table-pagination";
 import { DataTableHeader } from "./data-display/data-table-header";
+import { usePermissions } from '../lib/use-permissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 export function PaymentsManagement() {
+  const { hasPermission } = usePermissions();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,6 +164,24 @@ export function PaymentsManagement() {
   const approvedCount = payments.filter(p => p.status === 'PAID').length;
   const pendingCount = payments.filter(p => p.status === 'PENDING').length;
   const failedCount = payments.filter(p => p.status === 'FAILED').length;
+
+  // Verificar permissão de visualização
+  if (!hasPermission(PERMISSIONS.PAYMENTS_VIEW)) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Você não tem permissão para visualizar pagamentos.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Verificar permissão para cancelar pagamentos
+  const canCancelPayment = hasPermission(PERMISSIONS.PAYMENTS_CANCEL);
 
   return (
     <div className="space-y-6">
@@ -354,7 +376,7 @@ export function PaymentsManagement() {
                               >
                                 <FileText className="h-4 w-4 text-blue-600" />
                               </Button>
-                              {payment.status === 'PAID' && (
+                              {canCancelPayment && payment.status === 'PAID' && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -460,7 +482,7 @@ export function PaymentsManagement() {
                             <FileText className="h-4 w-4 mr-2" />
                             Detalhes
                           </Button>
-                          {payment.status === 'PAID' && (
+                          {canCancelPayment && payment.status === 'PAID' && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -558,7 +580,7 @@ export function PaymentsManagement() {
                   <div className="bg-muted p-2 rounded text-sm font-mono">{selectedPayment.stripePaymentIntentId || selectedPayment.stripeChargeId || 'N/A'}</div>
                 </div>
 
-                {selectedPayment.status === 'PAID' && (
+                {canCancelPayment && selectedPayment.status === 'PAID' && (
                   <div className="pt-4 border-t">
                     <Button
                       variant="outline"

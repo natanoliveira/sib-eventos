@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { updateEventSchema, deleteEventSchema } from '@/lib/validations';
+import { validateBody, validateParams } from '@/lib/validation-middleware';
 
 // GET /api/events/[id] - Obter evento específico
 async function getEventHandler(
@@ -8,8 +10,17 @@ async function getEventHandler(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Valida route params
+    const validation = validateParams(params, deleteEventSchema);
+
+    if (!validation.success) {
+      return validation.error;
+    }
+
+    const { id } = validation.data;
+
     const event = await prisma.event.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         creator: {
           select: {
@@ -88,10 +99,26 @@ async function getEventHandler(
 export const GET = requireAuth(getEventHandler);
 
 // PUT /api/events/[id] - Atualizar evento
+// Protegido com validação Zod + sanitização
 export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: { id: string } }) => {
     try {
-      const body = await request.json();
+      // Valida route params
+      const paramsValidation = validateParams(params, deleteEventSchema);
+
+      if (!paramsValidation.success) {
+        return paramsValidation.error;
+      }
+
+      const { id } = paramsValidation.data;
+
+      // Valida e sanitiza body com Zod
+      const validation = await validateBody(request, updateEventSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
       const {
         title,
         description,
@@ -103,20 +130,20 @@ export const PUT = requireAuth(
         category,
         status,
         imageUrl,
-      } = body;
+      } = validation.data;
 
       const event = await prisma.event.update({
-        where: { id: params.id },
+        where: { id },
         data: {
-          ...(title && { title }),
+          ...(title !== undefined && { title }),
           ...(description !== undefined && { description }),
-          ...(startDate && { startDate: new Date(startDate) }),
+          ...(startDate !== undefined && { startDate: new Date(startDate) }),
           ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
-          ...(location && { location }),
-          ...(capacity !== undefined && { capacity: parseInt(capacity) }),
-          ...(price !== undefined && { price: parseFloat(price) }),
-          ...(category && { category }),
-          ...(status && { status }),
+          ...(location !== undefined && { location }),
+          ...(capacity !== undefined && { capacity }),
+          ...(price !== undefined && { price }),
+          ...(category !== undefined && { category }),
+          ...(status !== undefined && { status }),
           ...(imageUrl !== undefined && { imageUrl }),
         },
         include: {
@@ -145,8 +172,17 @@ export const PUT = requireAuth(
 export const DELETE = requireAuth(
   async (_: NextRequest, { params }: { params: { id: string } }) => {
     try {
+      // Valida route params
+      const validation = validateParams(params, deleteEventSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
+      const { id } = validation.data;
+
       await prisma.event.update({
-        where: { id: params.id },
+        where: { id },
         data: { removed: true, status: 'CANCELLED' },
       });
 

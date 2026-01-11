@@ -10,13 +10,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Search, Plus, UserCheck, UserX, Calendar, X, Loader2, Mail, Phone } from "lucide-react";
+import { Search, Plus, UserCheck, UserX, Calendar, X, Loader2, Mail, Phone, AlertCircle } from "lucide-react";
 import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { apiClient } from '../lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { toastError, toastSuccess, toastWarning } from '@/lib/toast';
 import { DataTablePagination } from "./data-display/data-table-pagination";
 import { DataTableHeader } from "./data-display/data-table-header";
+import { usePermissions } from '../lib/use-permissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 interface Member {
   id: string;
@@ -43,6 +46,7 @@ interface Event {
 
 export function EventRegistrations() {
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -242,6 +246,26 @@ export function EventRegistrations() {
     handleClearMember();
   };
 
+  // Verificar permissão de visualização
+  if (!hasPermission(PERMISSIONS.EVENT_REGISTRATIONS_VIEW)) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Você não tem permissão para visualizar inscrições em eventos.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Verificar permissões para ações
+  const canCreate = hasPermission(PERMISSIONS.EVENT_REGISTRATIONS_CREATE);
+  const canCancel = hasPermission(PERMISSIONS.EVENT_REGISTRATIONS_CANCEL);
+  const canConfirm = hasPermission(PERMISSIONS.EVENT_REGISTRATIONS_CONFIRM);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -253,13 +277,14 @@ export function EventRegistrations() {
         </div>
 
         {/* Modal de Nova inscrição */}
-        <Dialog open={isAddDialogOpen} onOpenChange={openModalDialogRegistration}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Inscrição
-            </Button>
-          </DialogTrigger>
+        {canCreate && (
+          <Dialog open={isAddDialogOpen} onOpenChange={openModalDialogRegistration}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Inscrição
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Inscrever Membro em Evento</DialogTitle>
@@ -376,7 +401,8 @@ export function EventRegistrations() {
               )}
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       {/* Filters */}
@@ -492,7 +518,7 @@ export function EventRegistrations() {
 
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            {reg.status === 'PENDING' && (
+                            {canConfirm && reg.status === 'PENDING' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -503,7 +529,7 @@ export function EventRegistrations() {
                                 Confirmar
                               </Button>
                             )}
-                            {reg.status !== 'CANCELLED' && (
+                            {canCancel && reg.status !== 'CANCELLED' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -596,33 +622,35 @@ export function EventRegistrations() {
                         </div>
 
                         {/* Ações */}
-                        <div className="flex gap-2 pt-4 border-t">
-                          {reg.status === 'PENDING' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
-                              onClick={() => handleConfirmRegistration(reg.id)}
-                            >
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Confirmar
-                            </Button>
-                          )}
-                          {reg.status !== 'CANCELLED' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                              onClick={() => {
-                                setSelectedRegistration(reg);
-                                setIsCancelDialogOpen(true);
-                              }}
-                            >
-                              <UserX className="h-4 w-4 mr-2" />
-                              Cancelar
-                            </Button>
-                          )}
-                        </div>
+                        {(canConfirm || canCancel) && (
+                          <div className="flex gap-2 pt-4 border-t">
+                            {canConfirm && reg.status === 'PENDING' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
+                                onClick={() => handleConfirmRegistration(reg.id)}
+                              >
+                                <UserCheck className="h-4 w-4 mr-2" />
+                                Confirmar
+                              </Button>
+                            )}
+                            {canCancel && reg.status !== 'CANCELLED' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  setSelectedRegistration(reg);
+                                  setIsCancelDialogOpen(true);
+                                }}
+                              >
+                                <UserX className="h-4 w-4 mr-2" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );

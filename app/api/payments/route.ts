@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { getPaymentsQuerySchema } from '@/lib/validations';
+import { validateQuery } from '@/lib/validation-middleware';
 
 export const GET = requireAuth(async (request: NextRequest) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const personId = searchParams.get('personId');
-    const eventId = searchParams.get('eventId');
-    const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    // Valida query parameters com Zod
+    const validation = validateQuery(request, getPaymentsQuerySchema);
+
+    if (!validation.success) {
+      return validation.error;
+    }
+
+    const { page, limit, search, status, method, startDate, endDate } = validation.data;
 
     // Build where clause for filtering via relationships
     const where: any = {};
@@ -18,14 +22,31 @@ export const GET = requireAuth(async (request: NextRequest) => {
       where.status = status;
     }
 
-    // Filter by person or event requires traversing through installment -> invoice
-    if (personId || eventId) {
-      where.installment = {
-        invoice: {
-          ...(personId && { personId }),
-          ...(eventId && { eventId }),
-        },
+    if (method) {
+      where.method = method;
+    }
+
+    if (startDate || endDate) {
+      where.paidAt = {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && { lte: new Date(endDate) }),
       };
+    }
+
+    // Search by person name or transaction ID
+    if (search) {
+      where.OR = [
+        { transactionId: { contains: search, mode: 'insensitive' } },
+        {
+          installment: {
+            invoice: {
+              person: {
+                name: { contains: search, mode: 'insensitive' },
+              },
+            },
+          },
+        },
+      ];
     }
 
     // Contar total de registros

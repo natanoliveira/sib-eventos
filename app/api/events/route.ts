@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { errorResponse } from '@/lib/api-response';
 import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
+import { getEventsQuerySchema, createEventSchema } from '@/lib/validations';
+import { validateQuery, validateBody } from '@/lib/validation-middleware';
 
 /**
  * GET /api/events - Listar eventos com paginação
@@ -15,12 +17,14 @@ import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
  */
 async function getEventsHandler(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const category = searchParams.get('category');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    // Valida query parameters com Zod
+    const validation = validateQuery(request, getEventsQuerySchema);
+
+    if (!validation.success) {
+      return validation.error;
+    }
+
+    const { page, limit, search, category, status } = validation.data;
 
     const where: any = { removed: false };
     if (status) where.status = status;
@@ -78,10 +82,17 @@ async function getEventsHandler(request: NextRequest) {
 export const GET = requireAuth(withRateLimit(apiLimiter, getEventsHandler));
 
 // POST /api/events - Criar evento
+// Protegido com validação Zod + sanitização
 export const POST = requireAuth(
   async (request: NextRequest, context: any) => {
     try {
-      const body = await request.json();
+      // Valida e sanitiza body com Zod
+      const validation = await validateBody(request, createEventSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
       const {
         title,
         description,
@@ -92,28 +103,22 @@ export const POST = requireAuth(
         price,
         category,
         imageUrl,
-      } = body;
-
-      if (!title || !startDate || !location || capacity === undefined || price === undefined) {
-        return NextResponse.json(
-          { error: 'Dados incompletos' },
-          { status: 400 }
-        );
-      }
+        status,
+      } = validation.data;
 
       const event = await prisma.event.create({
         data: {
           title,
-          description,
+          description: description || undefined,
           startDate: new Date(startDate),
           endDate: endDate ? new Date(endDate) : null,
           location,
-          capacity: parseInt(capacity),
-          price: parseFloat(price),
+          capacity: capacity || undefined,
+          price: price ?? 0,
           category: category || 'Geral',
-          imageUrl,
+          imageUrl: imageUrl || undefined,
           creatorId: context.user.id,
-          status: 'ACTIVE',
+          status: status || 'ACTIVE',
           removed: false,
         },
         include: {

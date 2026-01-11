@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { errorResponse } from '@/lib/api-response';
 import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
+import { getRegistrationsQuerySchema, createRegistrationSchema } from '@/lib/validations';
+import { validateQuery, validateBody } from '@/lib/validation-middleware';
 
 /**
  * GET /api/event-registrations - Listar inscrições em eventos com paginação
@@ -16,16 +18,18 @@ import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
  */
 async function getRegistrationsHandler(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId');
-    const userId = searchParams.get('userId'); // Na verdade é personId
-    const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    // Valida query parameters com Zod
+    const validation = validateQuery(request, getRegistrationsQuerySchema);
+
+    if (!validation.success) {
+      return validation.error;
+    }
+
+    const { page, limit, eventId, personId, status } = validation.data;
 
     const where: any = {};
     if (eventId) where.eventId = eventId;
-    if (userId) where.personId = userId;
+    if (personId) where.personId = personId;
     if (status) where.status = status;
 
     // Contar total de registros
@@ -102,26 +106,22 @@ export const GET = requireAuth(withRateLimit(apiLimiter, getRegistrationsHandler
 
 /**
  * POST /api/event-registrations - Criar nova inscrição
- *
- * Body:
- * - userId: ID da pessoa (personId)
- * - eventId: ID do evento
+ * Protegido com validação Zod + sanitização
  */
 async function createRegistrationHandler(request: NextRequest, context: any) {
   try {
-    const body = await request.json();
-    const { persoId, userId, eventId } = body;
+    // Valida e sanitiza body com Zod
+    const validation = await validateBody(request, createRegistrationSchema);
 
-    if (!persoId && !userId && !eventId) {
-      return NextResponse.json(
-        { error: 'persoId, userId e eventId são obrigatórios' },
-        { status: 400 }
-      );
+    if (!validation.success) {
+      return validation.error;
     }
+
+    const { personId, eventId, createdByUserId } = validation.data;
 
     // Verificar se a pessoa existe
     const person = await prisma.person.findUnique({
-      where: { id: persoId },
+      where: { id: personId },
     });
 
     if (!person) {
@@ -146,7 +146,7 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
     // Verificar se já existe uma inscrição CONFIRMADA ou PENDENTE para esta pessoa neste evento
     const existingConfirmedRegistration = await prisma.eventMembership.findFirst({
       where: {
-        personId: persoId,
+        personId: personId,
         eventId: eventId,
         status: { in: ['CONFIRMED', 'PENDING'] },
       },
@@ -167,7 +167,7 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       },
     });
 
-    if (currentRegistrations >= event.capacity) {
+    if (event.capacity && currentRegistrations >= event.capacity) {
       return NextResponse.json(
         { error: 'Evento está com lotação completa' },
         { status: 400 }
@@ -177,10 +177,9 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
     // Criar inscrição
     const registration = await prisma.eventMembership.create({
       data: {
-        personId: persoId,
+        personId: personId,
         eventId: eventId,
-        // userId: userId,
-        createdByUserId: context.user.id,
+        createdByUserId: createdByUserId || context.user.id,
         status: 'PENDING',
       },
       include: {

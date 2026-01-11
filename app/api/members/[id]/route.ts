@@ -2,12 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { formatMemberCategory, parseMemberCategoryInput } from '@/lib/member-categories';
+import { updateMemberSchema, deleteMemberSchema } from '@/lib/validations';
+import { validateBody, validateParams } from '@/lib/validation-middleware';
 
 // GET /api/members/[id] - Obter pessoa/membro específico
 export const GET = requireAuth(
   async (_: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      const { id } = await params;
+      const resolvedParams = await params;
+
+      // Valida route params
+      const validation = validateParams(resolvedParams, deleteMemberSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
+      const { id } = validation.data;
+
       const person = await prisma.person.findUnique({
         where: { id },
       });
@@ -34,11 +46,28 @@ export const GET = requireAuth(
 );
 
 // PUT /api/members/[id] - Atualizar pessoa/membro
+// Protegido com validação Zod + sanitização
 export const PUT = requireAuth(
   async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      const { id } = await params;
-      const body = await request.json();
+      const resolvedParams = await params;
+
+      // Valida route params
+      const paramsValidation = validateParams(resolvedParams, deleteMemberSchema);
+
+      if (!paramsValidation.success) {
+        return paramsValidation.error;
+      }
+
+      const { id } = paramsValidation.data;
+
+      // Valida e sanitiza body com Zod
+      const validation = await validateBody(request, updateMemberSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
       const {
         name,
         email,
@@ -48,24 +77,28 @@ export const PUT = requireAuth(
         status,
         notes,
         image,
-      } = body;
+      } = validation.data;
 
       const updateData: any = {};
-      if (name) updateData.name = name;
-      if (email) updateData.email = email;
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
       if (phone !== undefined) updateData.phone = phone;
       if (address !== undefined) updateData.address = address;
-      const parsedCategory = parseMemberCategoryInput(category);
-      if (!parsedCategory.isValid) {
-        return NextResponse.json(
-          { error: 'Categoria inválida' },
-          { status: 400 }
-        );
+
+      if (category !== undefined) {
+        const parsedCategory = parseMemberCategoryInput(category);
+        if (!parsedCategory.isValid) {
+          return NextResponse.json(
+            { error: 'Categoria inválida' },
+            { status: 400 }
+          );
+        }
+        if (parsedCategory.value !== undefined) {
+          updateData.category = parsedCategory.value;
+        }
       }
-      if (parsedCategory.value !== undefined) {
-        updateData.category = parsedCategory.value;
-      }
-      if (status) updateData.status = status;
+
+      if (status !== undefined) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
       if (image !== undefined) updateData.image = image;
 
@@ -92,7 +125,17 @@ export const PUT = requireAuth(
 export const DELETE = requireAuth(
   async (_: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      const { id } = await params;
+      const resolvedParams = await params;
+
+      // Valida route params
+      const validation = validateParams(resolvedParams, deleteMemberSchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
+      const { id } = validation.data;
+
       await prisma.person.delete({
         where: { id },
       });

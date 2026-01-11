@@ -16,8 +16,12 @@ import { toastSuccess, toastError } from '../lib/toast';
 import { formatCurrencyBr } from '@/lib/utils';
 import { DataTablePagination } from "./data-display/data-table-pagination";
 import { DataTableHeader } from "./data-display/data-table-header";
+import { usePermissions } from '../lib/use-permissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 export function InstallmentsManagement() {
+  const { hasPermission } = usePermissions();
   const [installments, setInstallments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -173,6 +177,25 @@ export function InstallmentsManagement() {
   };
 
   const totals = calculateTotals();
+
+  // Verificar permissão de visualização
+  if (!hasPermission(PERMISSIONS.INSTALLMENTS_VIEW)) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Você não tem permissão para visualizar parcelas.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Verificar permissões para ações
+  const canRegisterPayment = hasPermission(PERMISSIONS.INSTALLMENTS_REGISTER_PAYMENT);
+  const canUseStripe = hasPermission(PERMISSIONS.INSTALLMENTS_STRIPE);
 
   return (
     <div className="space-y-6">
@@ -350,26 +373,30 @@ export function InstallmentsManagement() {
                         </TableCell>
 
                         <TableCell>
-                          {inst.status === 'PENDING' && (
+                          {inst.status === 'PENDING' && (canRegisterPayment || canUseStripe) && (
                             <div className="flex items-center space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 hover:bg-green-50"
-                                onClick={() => handleOpenPaymentDialog(inst)}
-                              >
-                                <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-                                Registrar Pagamento
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 hover:bg-blue-50"
-                                onClick={() => handlePayWithStripe(inst)}
-                              >
-                                <CreditCard className="h-4 w-4 text-blue-600 mr-1" />
-                                Stripe
-                              </Button>
+                              {canRegisterPayment && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 hover:bg-green-50"
+                                  onClick={() => handleOpenPaymentDialog(inst)}
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
+                                  Registrar Pagamento
+                                </Button>
+                              )}
+                              {canUseStripe && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 hover:bg-blue-50"
+                                  onClick={() => handlePayWithStripe(inst)}
+                                >
+                                  <CreditCard className="h-4 w-4 text-blue-600 mr-1" />
+                                  Stripe
+                                </Button>
+                              )}
                             </div>
                           )}
                           {inst.status === 'PAID' && inst.payments?.length > 0 && (
@@ -468,26 +495,30 @@ export function InstallmentsManagement() {
                         </div>
 
                         {/* Ações */}
-                        {inst.status === 'PENDING' && (
+                        {inst.status === 'PENDING' && (canRegisterPayment || canUseStripe) && (
                           <div className="flex gap-2 pt-4 border-t">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
-                              onClick={() => handleOpenPaymentDialog(inst)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Registrar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
-                              onClick={() => handlePayWithStripe(inst)}
-                            >
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              Stripe
-                            </Button>
+                            {canRegisterPayment && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-green-200 text-green-600 hover:bg-green-50"
+                                onClick={() => handleOpenPaymentDialog(inst)}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Registrar
+                              </Button>
+                            )}
+                            {canUseStripe && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                                onClick={() => handlePayWithStripe(inst)}
+                              >
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                Stripe
+                              </Button>
+                            )}
                           </div>
                         )}
                       </CardContent>

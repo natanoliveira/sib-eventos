@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { getInstallmentsQuerySchema } from '@/lib/validations';
+import { validateQuery } from '@/lib/validation-middleware';
 
 // GET /api/installments - Listar parcelas
+// Protegido com validação Zod
 export const GET = requireAuth(
   async (request: NextRequest) => {
     try {
-      const { searchParams } = new URL(request.url);
-      const invoiceId = searchParams.get('invoiceId');
-      const status = searchParams.get('status');
-      const personId = searchParams.get('personId');
-      const eventId = searchParams.get('eventId');
-      const page = parseInt(searchParams.get('page') || '1');
-      const limit = parseInt(searchParams.get('limit') || '10');
+      // Valida query parameters com Zod
+      const validation = validateQuery(request, getInstallmentsQuerySchema);
+
+      if (!validation.success) {
+        return validation.error;
+      }
+
+      const { page, limit, search, status, invoiceId, personId } = validation.data;
 
       const where: any = {};
 
@@ -24,12 +28,29 @@ export const GET = requireAuth(
         where.invoiceId = invoiceId;
       }
 
-      // Filter by person or event via invoice relationship
-      if (personId || eventId) {
+      // Filter by person via invoice relationship
+      if (personId) {
         where.invoice = {
-          ...(personId && { personId }),
-          ...(eventId && { eventId }),
+          personId,
         };
+      }
+
+      // Search by person name or invoice number
+      if (search) {
+        where.OR = [
+          {
+            invoice: {
+              person: {
+                name: { contains: search, mode: 'insensitive' },
+              },
+            },
+          },
+          {
+            invoice: {
+              invoiceNumber: { contains: search, mode: 'insensitive' },
+            },
+          },
+        ];
       }
 
       // Contar total de registros

@@ -11,15 +11,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2 } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { ConfirmDialog } from "./feedback/confirm-dialog";
 import { apiClient } from '../lib/api-client';
-import { MEMBER_CATEGORY_OPTIONS } from '../lib/member-categories';
+import { MEMBER_CATEGORY_OPTIONS, formatMemberCategory, parseMemberCategoryInput } from '../lib/member-categories';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { DataTablePagination } from './data-display/data-table-pagination';
 import { DataTableHeader } from './data-display/data-table-header';
+import { usePermissions } from '../lib/use-permissions';
+import { PERMISSIONS } from '../lib/permissions';
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 export function MembersManagement() {
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -101,13 +105,19 @@ export function MembersManagement() {
   };
 
   const handleEditMember = (member: any) => {
+    const parsedCategory = parseMemberCategoryInput(member.category);
+    const categoryValue =
+      parsedCategory.isValid && parsedCategory.value !== undefined
+        ? parsedCategory.value
+        : '';
+
     setSelectedMember(member);
     setNewMember({
       name: member.name || '',
       email: member.email || '',
       phone: member.phone || '',
       address: member.address || '',
-      category: member.category || '',
+      category: categoryValue,
       notes: member.notes || '',
       image: member.image || ''
     });
@@ -151,7 +161,8 @@ export function MembersManagement() {
   };
 
   const getCategoryColor = (category: string) => {
-    switch (category) {
+    const label = formatMemberCategory(category) || category;
+    switch (label) {
       case 'Membro Ativo': return 'bg-green-100 text-green-800';
       case 'Membro Regular': return 'bg-blue-100 text-blue-800';
       case 'Membro Novo': return 'bg-amber-100 text-amber-800';
@@ -171,6 +182,26 @@ export function MembersManagement() {
     return status === 'ACTIVE' ? 'Ativo' : status === 'INACTIVE' ? 'Inativo' : status;
   };
 
+  // Verificar permissão de visualização
+  if (!hasPermission(PERMISSIONS.MEMBERS_VIEW)) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Acesso Negado</AlertTitle>
+          <AlertDescription>
+            Você não tem permissão para visualizar membros.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Verificar permissões para ações
+  const canCreate = hasPermission(PERMISSIONS.MEMBERS_CREATE);
+  const canEdit = hasPermission(PERMISSIONS.MEMBERS_EDIT);
+  const canDelete = hasPermission(PERMISSIONS.MEMBERS_DELETE);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -181,13 +212,14 @@ export function MembersManagement() {
           </p>
         </div>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Membro
-            </Button>
-          </DialogTrigger>
+        {canCreate && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Membro
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Cadastrar Novo Membro</DialogTitle>
@@ -289,7 +321,8 @@ export function MembersManagement() {
               )}
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       {/* Filters */}
@@ -393,7 +426,7 @@ export function MembersManagement() {
 
                         <TableCell>
                           <Badge className={getCategoryColor(member.category)}>
-                            {member.category}
+                            {formatMemberCategory(member.category)}
                           </Badge>
                         </TableCell>
 
@@ -408,24 +441,30 @@ export function MembersManagement() {
                         </TableCell>
 
                         <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-blue-50"
-                              onClick={() => handleEditMember(member)}
-                            >
-                              <Edit2 className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-red-50"
-                              onClick={() => handleDeleteMember(member)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
+                          {(canEdit || canDelete) && (
+                            <div className="flex items-center space-x-2">
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-blue-50"
+                                  onClick={() => handleEditMember(member)}
+                                >
+                                  <Edit2 className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-red-50"
+                                  onClick={() => handleDeleteMember(member)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -461,7 +500,7 @@ export function MembersManagement() {
                             <div className="text-blue-900 font-medium">{member.name}</div>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge className={getCategoryColor(member.category)}>
-                                {member.category}
+                                {formatMemberCategory(member.category)}
                               </Badge>
                               <Badge className={getStatusColor(member.status)}>
                                 {getStatusLabel(member.status)}
@@ -489,26 +528,32 @@ export function MembersManagement() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-4 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
-                          onClick={() => handleEditMember(member)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                          onClick={() => handleDeleteMember(member)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir
-                        </Button>
-                      </div>
+                      {(canEdit || canDelete) && (
+                        <div className="flex items-center gap-2 pt-4 border-t">
+                          {canEdit && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                              onClick={() => handleEditMember(member)}
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Editar
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteMember(member)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

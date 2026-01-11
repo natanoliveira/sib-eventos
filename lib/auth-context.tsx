@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { DEFAULT_PERMISSIONS_BY_ROLE } from './permissions';
 
 interface User {
   id: string;
@@ -59,24 +60,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Mock credentials for demo (in production, this would be a real API call)
       const validCredentials = [
-        { email: 'admin@igreja.com', password: 'admin123', user: { id: '1', name: 'Administrador', email: 'admin@igreja.com', role: 'ADMIN' } },
-        { email: 'pastor@igreja.com', password: 'pastor123', user: { id: '2', name: 'Pastor João', email: 'pastor@igreja.com', role: 'LEADER' } },
-        { email: 'membro@igreja.com', password: 'membro123', user: { id: '3', name: 'Maria Silva', email: 'membro@igreja.com', role: 'MEMBER' } }
+        { email: 'admin@igreja.com', password: '123456', user: { id: '1', name: 'Pastor João Silva', email: 'admin@igreja.com', role: 'ADMIN' } },
+        { email: 'carlos@igreja.com', password: '123456', user: { id: '2', name: 'Carlos Oliveira', email: 'carlos@igreja.com', role: 'LEADER' } },
+        { email: 'membro@igreja.com', password: '123456', user: { id: '3', name: 'Maria Silva', email: 'membro@igreja.com', role: 'MEMBER' } }
       ];
-      
-      const credential = validCredentials.find(cred => 
+
+      const credential = validCredentials.find(cred =>
         cred.email === email && cred.password === password
       );
-      
+
       if (!credential) {
         throw new Error('Email ou senha incorretos');
       }
-      
+
+      // Atribuir permissões baseadas no role
+      const userWithPermissions = {
+        ...credential.user,
+        permissions: DEFAULT_PERMISSIONS_BY_ROLE[credential.user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || []
+      };
+
       const mockToken = 'mock_token_' + Date.now();
-      
+
       localStorage.setItem('auth_token', mockToken);
-      localStorage.setItem('user_data', JSON.stringify(credential.user));
-      setUser(credential.user);
+      localStorage.setItem('user_data', JSON.stringify(userWithPermissions));
+      setUser(userWithPermissions);
       
     } catch (error) {
       console.error('Login error:', error);
@@ -99,11 +106,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         name: 'Usuário Google',
         email: 'usuario.google@exemplo.com',
         image: 'https://via.placeholder.com/100x100/d946ef/ffffff?text=UG',
-        role: 'MEMBER'
+        role: 'MEMBER',
+        permissions: DEFAULT_PERMISSIONS_BY_ROLE.MEMBER
       };
 
       const mockToken = 'mock_google_token_' + Date.now();
-      
+
       localStorage.setItem('auth_token', mockToken);
       localStorage.setItem('user_data', JSON.stringify(mockGoogleUser));
       setUser(mockGoogleUser);
