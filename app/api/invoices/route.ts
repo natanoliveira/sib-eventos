@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { errorResponse } from '@/lib/api-response';
+import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 
-// GET /api/invoices - Listar faturas
-export const GET = requireAuth(
-  async (request: NextRequest) => {
+/**
+ * GET /api/invoices - Listar faturas
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Autenticação obrigatória
+ * - Filtragem por pessoa, evento, status, busca
+ */
+async function getInvoicesHandler(request: NextRequest) {
     try {
       const { searchParams } = new URL(request.url);
       const personId = searchParams.get('personId');
@@ -75,11 +83,9 @@ export const GET = requireAuth(
 
       return NextResponse.json(invoices);
     } catch (error) {
-      console.error('Error fetching invoices:', error);
-      return NextResponse.json(
-        { error: 'Erro ao buscar faturas' },
-        { status: 500 }
-      );
+      return errorResponse('Erro ao buscar faturas', 500, error);
     }
-  }
-);
+}
+
+// Aplicar rate limiting para proteção contra abuse
+export const GET = requireAuth(withRateLimit(apiLimiter, getInvoicesHandler));

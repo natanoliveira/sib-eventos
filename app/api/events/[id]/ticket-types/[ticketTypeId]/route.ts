@@ -31,36 +31,72 @@ async function updateTicketTypeHandler(
 
     const updates = bodyValidation.data;
 
-    // Validar capacidade se estiver sendo atualizada
-    if (updates.capacity !== undefined) {
-      const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        include: { ticketTypes: true },
-      });
-
-      if (event && event.capacity) {
-        const otherCapacity = event.ticketTypes
-          .filter((tt) => tt.id !== ticketTypeId && tt.capacity)
-          .reduce((sum, tt) => sum + Number(tt.capacity || 0), 0);
-
-        if (
-          updates.capacity &&
-          otherCapacity + updates.capacity > event.capacity
-        ) {
-          return NextResponse.json(
-            { error: 'Capacidade total excede capacidade do evento' },
-            { status: 400 }
-          );
+    // Buscar o evento e ticketType com suas inscrições
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        ticketTypes: {
+          include: {
+            _count: {
+              select: { eventMemberships: true }
+            }
+          }
         }
+      },
+    });
+
+    if (!event) {
+      return NextResponse.json(
+        { error: 'Evento não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const ticketType = event.ticketTypes.find(tt => tt.id === ticketTypeId);
+
+    if (!ticketType) {
+      return NextResponse.json(
+        { error: 'Tipo de ingresso não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    // Verificar se o evento está ACTIVE e se há inscrições neste ticketType
+    const hasRegistrations = ticketType._count.eventMemberships > 0;
+
+    if (event.status === 'ACTIVE' && hasRegistrations) {
+      return NextResponse.json(
+        {
+          error: 'Não é possível editar tipo de ingresso de evento aberto com inscrições vinculadas',
+          details: 'Para editar, primeiro cancele ou conclua o evento'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validar capacidade se estiver sendo atualizada
+    if (updates.capacity !== undefined && event.capacity) {
+      const otherCapacity = event.ticketTypes
+        .filter((tt) => tt.id !== ticketTypeId && tt.capacity)
+        .reduce((sum, tt) => sum + Number(tt.capacity || 0), 0);
+
+      if (
+        updates.capacity &&
+        otherCapacity + updates.capacity > event.capacity
+      ) {
+        return NextResponse.json(
+          { error: 'Capacidade total excede capacidade do evento' },
+          { status: 400 }
+        );
       }
     }
 
-    const ticketType = await prisma.ticketType.update({
+    const updatedTicketType = await prisma.ticketType.update({
       where: { id: ticketTypeId },
       data: updates,
     });
 
-    return NextResponse.json(ticketType);
+    return NextResponse.json(updatedTicketType);
   } catch (error) {
     console.error('Error updating ticket type:', error);
     return NextResponse.json(
@@ -84,19 +120,60 @@ async function deleteTicketTypeHandler(
       return paramsValidation.error;
     }
 
-    const { ticketTypeId } = paramsValidation.data;
+    const { id: eventId, ticketTypeId } = paramsValidation.data;
 
-    // Verificar se há inscrições vinculadas
-    const registrationsCount = await prisma.eventMembership.count({
-      where: { ticketTypeId },
+    // Buscar o ticketType com o evento e contagem de inscrições
+    const ticketType = await prisma.ticketType.findUnique({
+      where: { id: ticketTypeId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            status: true,
+          }
+        },
+        _count: {
+          select: { eventMemberships: true }
+        }
+      }
     });
 
-    if (registrationsCount > 0) {
+    if (!ticketType) {
+      return NextResponse.json(
+        { error: 'Tipo de ingresso não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    // Verificar se o ticketType pertence ao evento especificado
+    if (ticketType.event.id !== eventId) {
+      return NextResponse.json(
+        { error: 'Tipo de ingresso não pertence a este evento' },
+        { status: 400 }
+      );
+    }
+
+    const hasRegistrations = ticketType._count.eventMemberships > 0;
+
+    // Verificar se o evento está ACTIVE e se há inscrições
+    if (ticketType.event.status === 'ACTIVE' && hasRegistrations) {
       return NextResponse.json(
         {
-          error:
-            'Não é possível excluir tipo de ingresso com inscrições vinculadas',
+          error: 'Não é possível excluir tipo de ingresso de evento aberto com inscrições vinculadas',
+          details: 'Para excluir, primeiro cancele as inscrições ou conclua o evento'
         },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se é o único tipo de ingresso do evento
+    const totalTicketTypes = await prisma.ticketType.count({
+      where: { eventId }
+    });
+
+    if (totalTicketTypes <= 1) {
+      return NextResponse.json(
+        { error: 'Não é possível excluir o único tipo de ingresso do evento' },
         { status: 400 }
       );
     }

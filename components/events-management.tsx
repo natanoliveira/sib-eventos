@@ -146,10 +146,14 @@ export function EventsManagement() {
     setIsEditDialogOpen(true);
   };
 
-  const canRemoveTicketTypes =
-    selectedEvent &&
-    (selectedEvent.status === 'ACTIVE' || selectedEvent.status === 'Ativo') &&
-    (selectedEvent._count?.memberships ?? 0) === 0;
+  // Calcula quais ticketTypes têm inscrições
+  const getTicketTypesWithRegistrations = () => {
+    if (!selectedEvent || !selectedEvent.ticketTypes) return [];
+
+    return selectedEvent.ticketTypes
+      .filter((tt: any) => tt._count?.eventMemberships > 0)
+      .map((tt: any) => tt.id);
+  };
 
   const syncTicketTypes = async (eventId: string, ticketTypes: any[]) => {
     const existingTicketTypes = selectedEvent?.ticketTypes || [];
@@ -201,9 +205,15 @@ export function EventsManagement() {
       );
     }
 
-    if (canRemoveTicketTypes) {
-      for (const ticketType of toDelete) {
+    // Deletar ticketTypes removidos
+    // Backend valida individualmente se cada tipo pode ser deletado
+    for (const ticketType of toDelete) {
+      try {
         await apiClient.deleteTicketType(eventId, ticketType.id);
+      } catch (error: any) {
+        // Se o backend bloquear a deleção, mostra erro mas continua com outros
+        console.error(`Erro ao deletar ticketType ${ticketType.id}:`, error);
+        toastError(`Não foi possível remover "${ticketType.name}": ${error.message}`);
       }
     }
   };
@@ -534,10 +544,33 @@ export function EventsManagement() {
                     <MapPin className="w-4 h-4 mr-2" />
                     {event.location}
                   </div>
-                  <div className="flex items-center text-muted-foreground">
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    R$ {formatCurrencyBr(event.price)}
-                  </div>
+                  {event.ticketTypes && event.ticketTypes.length > 0 ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center text-muted-foreground">
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        <span className="font-medium">
+                          A partir de R$ {formatCurrencyBr(Math.min(...event.ticketTypes.map((tt: any) => tt.price)))}
+                        </span>
+                      </div>
+                      <div className="pl-6 space-y-0.5">
+                        {event.ticketTypes.map((ticketType: any) => (
+                          <div key={ticketType.id} className="text-xs text-muted-foreground">
+                            {ticketType.name}: R$ {formatCurrencyBr(ticketType.price)}
+                            {ticketType.capacity && (
+                              <span className="ml-1">
+                                ({ticketType._count?.eventMemberships || 0}/{ticketType.capacity})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-muted-foreground">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      R$ {formatCurrencyBr(event.price)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -708,13 +741,11 @@ export function EventsManagement() {
                   control={editForm.control}
                   errors={editForm.formState.errors}
                   register={editForm.register}
-                  allowRemove={canRemoveTicketTypes}
+                  allowRemove={true}
+                  allowEdit={true}
+                  ticketTypesWithRegistrations={getTicketTypesWithRegistrations()}
+                  eventStatus={selectedEvent?.status}
                 />
-                {!canRemoveTicketTypes && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Remoção de tipos de ingresso só é permitida para eventos abertos e sem inscrições.
-                  </p>
-                )}
               </div>
             </div>
             <DialogFooter>

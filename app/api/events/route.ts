@@ -59,8 +59,13 @@ async function getEventsHandler(request: NextRequest) {
             description: true,
             price: true,
             capacity: true,
-        }
-      },
+            _count: {
+              select: {
+                eventMemberships: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             memberships: true,
@@ -92,76 +97,80 @@ async function getEventsHandler(request: NextRequest) {
 // Aplicar rate limiting para proteção contra abuse
 export const GET = requireAuth(withRateLimit(apiLimiter, getEventsHandler));
 
-// POST /api/events - Criar evento
-// Protegido com validação Zod + sanitização
-export const POST = requireAuth(
-  async (request: NextRequest, context: any) => {
-    try {
-      // Valida e sanitiza body com Zod
-      const validation = await validateBody(request, createEventSchema);
+/**
+ * POST /api/events - Criar evento
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Validação Zod + sanitização
+ * - Autenticação obrigatória
+ */
+async function createEventHandler(request: NextRequest, context: any) {
+  try {
+    // Valida e sanitiza body com Zod
+    const validation = await validateBody(request, createEventSchema);
 
-      if (!validation.success) {
-        return validation.error;
-      }
+    if (!validation.success) {
+      return validation.error;
+    }
 
-      const {
+    const {
+      title,
+      description,
+      startDate,
+      endDate,
+      location,
+      capacity,
+      price,
+      category,
+      imageUrl,
+      status,
+      ticketTypes,
+    } = validation.data;
+
+    const event = await prisma.event.create({
+      data: {
         title,
-        description,
-        startDate,
-        endDate,
+        description: description || undefined,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
         location,
         capacity,
-        price,
-        category,
-        imageUrl,
-        status,
-        ticketTypes,
-      } = validation.data;
-
-      const event = await prisma.event.create({
-        data: {
-          title,
-          description: description || undefined,
-          startDate: new Date(startDate),
-          endDate: endDate ? new Date(endDate) : null,
-          location,
-          capacity,
-          price: price ?? 0,
-          category: category || 'Geral',
-          imageUrl: imageUrl || undefined,
-          creatorId: context.user.id,
-          status: status || 'ACTIVE',
-          removed: false,
-          ticketTypes: ticketTypes
-            ? {
-                create: ticketTypes.map((tt) => ({
-                  name: tt.name,
-                  description: tt.description || undefined,
-                  price: tt.price,
-                  capacity: tt.capacity || null,
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+        price: price ?? 0,
+        category: category || 'Geral',
+        imageUrl: imageUrl || undefined,
+        creatorId: context.user.id,
+        status: status || 'ACTIVE',
+        removed: false,
+        ticketTypes: ticketTypes
+          ? {
+              create: ticketTypes.map((tt) => ({
+                name: tt.name,
+                description: tt.description || undefined,
+                price: tt.price,
+                capacity: tt.capacity || null,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
-          ticketTypes: true,
         },
-      });
+        ticketTypes: true,
+      },
+    });
 
-      return NextResponse.json(event, { status: 201 });
-    } catch (error) {
-      console.error('Error creating event:', error);
-      return NextResponse.json(
-        { error: 'Erro ao criar evento' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json(event, { status: 201 });
+  } catch (error) {
+    console.error('Error creating event:', error);
+    return errorResponse('Erro ao criar evento', 500, error);
   }
-);
+}
+
+// Aplicar rate limiting e autenticação
+export const POST = requireAuth(withRateLimit(apiLimiter, createEventHandler));

@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { errorResponse } from '@/lib/api-response';
+import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 import { getPaymentsQuerySchema } from '@/lib/validations';
 import { validateQuery } from '@/lib/validation-middleware';
 
-export const GET = requireAuth(async (request: NextRequest) => {
+/**
+ * GET /api/payments - Listar pagamentos com paginação
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Validação Zod de query parameters
+ * - Autenticação obrigatória
+ * - Filtragem por status, método, data, busca
+ */
+async function getPaymentsHandler(request: NextRequest) {
   try {
     // Valida query parameters com Zod
     const validation = validateQuery(request, getPaymentsQuerySchema);
@@ -98,13 +109,12 @@ export const GET = requireAuth(async (request: NextRequest) => {
       totalPages,
     });
   } catch (error) {
-    console.error('Error fetching payments:', error);
-    return NextResponse.json(
-      { error: 'Erro ao buscar pagamentos' },
-      { status: 500 }
-    );
+    return errorResponse('Erro ao buscar pagamentos', 500, error);
   }
-});
+}
+
+// Aplicar rate limiting para proteção contra abuse
+export const GET = requireAuth(withRateLimit(apiLimiter, getPaymentsHandler));
 
 // POST endpoint not used in new flow
 // Payments are created via /api/installments/[id]/pay

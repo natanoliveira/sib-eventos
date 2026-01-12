@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { errorResponse } from '@/lib/api-response';
+import { withRateLimit, apiLimiter } from '@/lib/rate-limit';
 import { formatMemberCategory, parseMemberCategoryInput } from '@/lib/member-categories';
 import { getMembersQuerySchema, createMemberSchema } from '@/lib/validations';
 import { validateQuery, validateBody } from '@/lib/validation-middleware';
 
-// GET /api/members - Listar pessoas/membros com paginação
-// Protegido com validação Zod
-export const GET = requireAuth(
-  async (request: NextRequest) => {
+/**
+ * GET /api/members - Listar pessoas/membros com paginação
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Validação Zod de query parameters
+ * - Autenticação obrigatória
+ */
+async function getMembersHandler(request: NextRequest) {
     try {
       // Valida query parameters com Zod
       const validation = validateQuery(request, getMembersQuerySchema);
@@ -71,19 +78,23 @@ export const GET = requireAuth(
         totalPages,
       });
     } catch (error) {
-      console.error('Error fetching persons:', error);
-      return NextResponse.json(
-        { error: 'Erro ao buscar pessoas' },
-        { status: 500 }
-      );
+      return errorResponse('Erro ao buscar pessoas', 500, error);
     }
-  }
-);
+}
 
-// POST /api/members - Criar pessoa/membro
-// Protegido com validação Zod + sanitização
-export const POST = requireAuth(
-  async (request: NextRequest) => {
+// Aplicar rate limiting para proteção contra abuse
+export const GET = requireAuth(withRateLimit(apiLimiter, getMembersHandler));
+
+/**
+ * POST /api/members - Criar pessoa/membro
+ *
+ * Proteções implementadas:
+ * - Rate limiting: 60 requests/minuto
+ * - Validação Zod + sanitização
+ * - Autenticação obrigatória
+ * - Verificação de email duplicado
+ */
+async function createMemberHandler(request: NextRequest) {
     try {
       // Valida e sanitiza body com Zod
       const validation = await validateBody(request, createMemberSchema);
@@ -132,11 +143,9 @@ export const POST = requireAuth(
         { status: 201 }
       );
     } catch (error) {
-      console.error('Error creating person:', error);
-      return NextResponse.json(
-        { error: 'Erro ao criar pessoa' },
-        { status: 500 }
-      );
+      return errorResponse('Erro ao criar pessoa', 500, error);
     }
-  }
-);
+}
+
+// Aplicar rate limiting e autenticação
+export const POST = requireAuth(withRateLimit(apiLimiter, createMemberHandler));
