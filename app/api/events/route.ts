@@ -52,6 +52,15 @@ async function getEventsHandler(request: NextRequest) {
             name: true,
           },
         },
+        ticketTypes: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            capacity: true,
+        }
+      },
         _count: {
           select: {
             memberships: true,
@@ -106,6 +115,7 @@ export const POST = requireAuth(
         category,
         imageUrl,
         status,
+        ticketTypes,
       } = validation.data;
 
       const event = await prisma.event.create({
@@ -122,6 +132,16 @@ export const POST = requireAuth(
           creatorId: context.user.id,
           status: status || 'ACTIVE',
           removed: false,
+          ticketTypes: ticketTypes
+            ? {
+                create: ticketTypes.map((tt) => ({
+                  name: tt.name,
+                  description: tt.description || undefined,
+                  price: tt.price,
+                  capacity: tt.capacity || null,
+                })),
+              }
+            : undefined,
         },
         include: {
           creator: {
@@ -131,6 +151,7 @@ export const POST = requireAuth(
               email: true,
             },
           },
+          ticketTypes: true,
         },
       });
 

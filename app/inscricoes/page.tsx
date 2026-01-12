@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 interface Member {
@@ -42,6 +44,8 @@ export default function InscricoesPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState<string | null>(null);
+  const [eventTicketTypes, setEventTicketTypes] = useState<{[eventId: string]: any[]}>({});
+  const [selectedTicketTypes, setSelectedTicketTypes] = useState<{[eventId: string]: string}>({});
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Evitar hydration mismatch
@@ -58,7 +62,7 @@ export default function InscricoesPage() {
         const response = await fetch('/api/events?status=ACTIVE');
         if (response.ok) {
           const data = await response.json();
-          setEvents(data);
+          setEvents(data.data || data);
         }
       } catch (error) {
         console.error('Error fetching events:', error);
@@ -69,6 +73,31 @@ export default function InscricoesPage() {
     };
     fetchEvents();
   }, [mounted]);
+
+  // Buscar tipos de ingresso para cada evento
+  useEffect(() => {
+    if (!mounted || events.length === 0) return;
+
+    const fetchTicketTypes = async () => {
+      for (const event of events) {
+        try {
+          const response = await fetch(`/api/events/${event.id}/ticket-types`);
+          if (response.ok) {
+            const ticketTypes = await response.json();
+            setEventTicketTypes(prev => ({ ...prev, [event.id]: ticketTypes }));
+
+            // Auto-selecionar o primeiro tipo de ingresso se houver apenas um
+            if (ticketTypes.length === 1) {
+              setSelectedTicketTypes(prev => ({ ...prev, [event.id]: ticketTypes[0].id }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching ticket types for event ${event.id}:`, error);
+        }
+      }
+    };
+    fetchTicketTypes();
+  }, [mounted, events]);
 
   // Buscar membros (autocomplete)
   useEffect(() => {
@@ -131,6 +160,14 @@ export default function InscricoesPage() {
       return;
     }
 
+    const ticketTypeId = selectedTicketTypes[event.id];
+    if (!ticketTypeId) {
+      toast.error('Atenção', {
+        description: 'Por favor, selecione um tipo de ingresso',
+      });
+      return;
+    }
+
     setRegistering(event.id);
 
     // Loading toast
@@ -145,6 +182,7 @@ export default function InscricoesPage() {
         body: JSON.stringify({
           personId: selectedMember.id,
           eventId: event.id,
+          ticketTypeId: ticketTypeId,
         }),
       });
 
@@ -373,11 +411,41 @@ export default function InscricoesPage() {
                         </span>
                       </div>
                     )}
+
+                    {/* Ticket Type Selection */}
+                    {eventTicketTypes[event.id]?.length > 0 && (
+                      <div className="pt-4 border-t space-y-2">
+                        <Label htmlFor={`ticket-${event.id}`} className="text-sm font-medium">
+                          Tipo de Ingresso
+                        </Label>
+                        <Select
+                          value={selectedTicketTypes[event.id] || ''}
+                          onValueChange={(value) => setSelectedTicketTypes(prev => ({ ...prev, [event.id]: value }))}
+                        >
+                          <SelectTrigger id={`ticket-${event.id}`}>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {eventTicketTypes[event.id].map((ticketType) => (
+                              <SelectItem key={ticketType.id} value={ticketType.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{ticketType.name}</span>
+                                  <span className="text-sm text-gray-500">
+                                    {formatPrice(ticketType.price)}
+                                    {ticketType.capacity && ` • ${ticketType._count?.eventMemberships || 0}/${ticketType.capacity} vagas`}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </CardContent>
                   <CardFooter>
                     <Button
                       onClick={() => handleRegister(event)}
-                      disabled={!selectedMember || registering === event.id}
+                      disabled={!selectedMember || registering === event.id || !selectedTicketTypes[event.id]}
                       className="w-full"
                     >
                       {registering === event.id ? 'Inscrevendo...' : 'Inscrever-se'}

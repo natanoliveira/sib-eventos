@@ -62,6 +62,14 @@ async function getRegistrationsHandler(request: NextRequest) {
             status: true,
           },
         },
+        ticketType: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+          },
+        },
         createdByUser: {
           select: {
             id: true,
@@ -85,10 +93,12 @@ async function getRegistrationsHandler(request: NextRequest) {
       id: reg.id,
       userId: reg.userId,
       eventId: reg.eventId,
+      ticketTypeId: reg.ticketTypeId,
       status: reg.status,
       registeredAt: reg.registeredAt,
       person: reg.person,
       event: reg.event,
+      ticketType: reg.ticketType,
       createdBy: reg.createdByUser,
     }));
 
@@ -119,7 +129,20 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       return validation.error;
     }
 
-    const { personId, eventId, createdByUserId } = validation.data;
+    const { personId, eventId, ticketTypeId, createdByUserId } = validation.data;
+
+    // Verificar se ticketType existe e pertence ao evento
+    const ticketType = await prisma.ticketType.findFirst({
+      where: { id: ticketTypeId, eventId },
+      include: { event: true },
+    });
+
+    if (!ticketType) {
+      return NextResponse.json(
+        { error: 'Tipo de ingresso não encontrado' },
+        { status: 404 }
+      );
+    }
 
     // Verificar se a pessoa existe
     const person = await prisma.person.findUnique({
@@ -129,18 +152,6 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
     if (!person) {
       return NextResponse.json(
         { error: 'Pessoa não encontrada' },
-        { status: 404 }
-      );
-    }
-
-    // Verificar se o evento existe
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-    });
-
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Evento não encontrado' },
         { status: 404 }
       );
     }
@@ -161,7 +172,24 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       );
     }
 
-    // Verificar capacidade do evento
+    // Verificar capacidade do tipo de ingresso
+    if (ticketType.capacity) {
+      const currentTicketTypeRegistrations = await prisma.eventMembership.count({
+        where: {
+          ticketTypeId,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+        },
+      });
+
+      if (currentTicketTypeRegistrations >= ticketType.capacity) {
+        return NextResponse.json(
+          { error: 'Este tipo de ingresso está esgotado' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Verificar capacidade total do evento
     const currentRegistrations = await prisma.eventMembership.count({
       where: {
         eventId: eventId,
@@ -169,7 +197,10 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       },
     });
 
-    if (event.capacity && currentRegistrations >= event.capacity) {
+    if (
+      ticketType.event.capacity &&
+      currentRegistrations >= ticketType.event.capacity
+    ) {
       return NextResponse.json(
         { error: 'Evento está com lotação completa' },
         { status: 400 }
@@ -181,6 +212,7 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       data: {
         personId: personId,
         eventId: eventId,
+        ticketTypeId: ticketTypeId,
         createdByUserId: createdByUserId || context.user.id,
         status: 'PENDING',
       },
@@ -206,6 +238,14 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
             status: true,
           },
         },
+        ticketType: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+          },
+        },
         createdByUser: {
           select: {
             id: true,
@@ -221,10 +261,12 @@ async function createRegistrationHandler(request: NextRequest, context: any) {
       id: registration.id,
       userId: registration.userId,
       eventId: registration.eventId,
+      ticketTypeId: registration.ticketTypeId,
       status: registration.status,
       registeredAt: registration.registeredAt,
       person: registration.person,
       event: registration.event,
+      ticketType: registration.ticketType,
       createdBy: registration.createdByUser,
     };
 

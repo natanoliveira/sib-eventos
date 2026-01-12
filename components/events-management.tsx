@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -16,6 +18,8 @@ import { apiClient } from '../lib/api-client';
 import { toastSuccess, toastError } from '../lib/toast';
 import { formatCurrencyBr } from '@/lib/utils';
 import { DataTablePagination } from "./data-display/data-table-pagination";
+import { TicketTypesFieldArray } from './ticket-types-field-array';
+import { createEventSchema } from '@/lib/validations/event.schema';
 
 export function EventsManagement() {
   const [events, setEvents] = useState<any[]>([]);
@@ -30,25 +34,36 @@ export function EventsManagement() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const [newEvent, setNewEvent] = useState({
-    title: '',
-    description: '',
-    date: '',
-    endDate: '',
-    location: '',
-    capacity: '',
-    price: '',
-    category: ''
+
+  // React Hook Form setup para criar evento
+  const createForm = useForm({
+    resolver: zodResolver(createEventSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      capacity: 100,
+      category: 'Geral',
+      ticketTypes: [
+        { name: 'Ingresso Padrão', description: '', price: 0, capacity: null }
+      ],
+    },
   });
-  const [editEvent, setEditEvent] = useState({
-    title: '',
-    description: '',
-    date: '',
-    endDate: '',
-    location: '',
-    capacity: '',
-    price: '',
-    category: ''
+
+  const editForm = useForm({
+    defaultValues: {
+      title: '',
+      description: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      capacity: 0,
+      price: null,
+      category: 'Geral',
+      ticketTypes: [],
+    },
   });
 
   useEffect(() => {
@@ -74,78 +89,150 @@ export function EventsManagement() {
       setTotalPages(response.totalPages);
     } catch (error: any) {
       toastError('Erro ao carregar eventos');
-      console.error('Error loading events:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddEvent = async () => {
+  const handleAddEvent = createForm.handleSubmit(async (data) => {
     try {
       setIsSubmitting(true);
 
       const eventData = {
-        title: newEvent.title,
-        description: newEvent.description,
-        startDate: newEvent.date,
-        endDate: newEvent.endDate || undefined,
-        location: newEvent.location,
-        capacity: parseInt(newEvent.capacity),
-        price: parseFloat(newEvent.price),
-        category: newEvent.category
+        ...data,
+        capacity: Number(data.capacity),
       };
 
       await apiClient.createEvent(eventData);
       toastSuccess('Evento criado com sucesso!');
 
       setIsAddDialogOpen(false);
-      setNewEvent({
-        title: '', description: '', date: '', endDate: '',
-        location: '', capacity: '', price: '', category: ''
-      });
+      createForm.reset();
 
       await loadEvents();
     } catch (error: any) {
       toastError(error.message || 'Erro ao criar evento');
-      console.error('Error creating event:', error);
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
 
   const handleEditClick = (event: any) => {
     setSelectedEvent(event);
-    setEditEvent({
-      title: event.title,
+    const startDate = event.startDate
+      ? new Date(event.startDate).toISOString().slice(0, 16)
+      : '';
+    const endDate = event.endDate
+      ? new Date(event.endDate).toISOString().slice(0, 16)
+      : '';
+
+    editForm.reset({
+      title: event.title || '',
       description: event.description || '',
-      date: event.startDate ? new Date(event.startDate).toISOString().split('T')[0] : '',
-      endDate: event.endDate ? new Date(event.endDate).toISOString().split('T')[0] : '',
-      location: event.location,
-      capacity: event.capacity.toString(),
-      price: event.price.toString(),
-      category: event.category || ''
+      startDate,
+      endDate,
+      location: event.location || '',
+      capacity: event.capacity ?? 0,
+      price: event.price ?? null,
+      category: event.category || 'Geral',
+      ticketTypes: (event.ticketTypes || []).map((ticketType: any) => ({
+        id: ticketType.id,
+        name: ticketType.name,
+        description: ticketType.description || '',
+        price: ticketType.price ?? 0,
+        capacity: ticketType.capacity ?? null,
+      })),
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateEvent = async () => {
+  const canRemoveTicketTypes =
+    selectedEvent &&
+    (selectedEvent.status === 'ACTIVE' || selectedEvent.status === 'Ativo') &&
+    (selectedEvent._count?.memberships ?? 0) === 0;
+
+  const syncTicketTypes = async (eventId: string, ticketTypes: any[]) => {
+    const existingTicketTypes = selectedEvent?.ticketTypes || [];
+    const existingById = new Map(
+      existingTicketTypes.map((ticketType: any) => [ticketType.id, ticketType])
+    );
+
+    const normalizeTicketType = (ticketType: any) => ({
+      name: ticketType.name?.trim() || '',
+      description: ticketType.description?.trim() || '',
+      price: Number(ticketType.price) || 0,
+      capacity: ticketType.capacity === null || ticketType.capacity === undefined
+        ? null
+        : Number(ticketType.capacity),
+    });
+
+    const incomingWithId = ticketTypes.filter((ticketType) => ticketType.id);
+    const incomingIds = new Set(incomingWithId.map((ticketType) => ticketType.id));
+
+    const toCreate = ticketTypes.filter((ticketType) => !ticketType.id);
+    const toDelete = existingTicketTypes.filter(
+      (ticketType: any) => !incomingIds.has(ticketType.id)
+    );
+
+    const toUpdate = incomingWithId.filter((ticketType) => {
+      const existing = existingById.get(ticketType.id);
+      if (!existing) return true;
+
+      const existingNormalized = normalizeTicketType(existing);
+      const incomingNormalized = normalizeTicketType(ticketType);
+
+      return (
+        existingNormalized.name !== incomingNormalized.name ||
+        existingNormalized.description !== incomingNormalized.description ||
+        existingNormalized.price !== incomingNormalized.price ||
+        existingNormalized.capacity !== incomingNormalized.capacity
+      );
+    });
+
+    for (const ticketType of toCreate) {
+      await apiClient.createTicketType(eventId, normalizeTicketType(ticketType));
+    }
+
+    for (const ticketType of toUpdate) {
+      await apiClient.updateTicketType(
+        eventId,
+        ticketType.id,
+        normalizeTicketType(ticketType)
+      );
+    }
+
+    if (canRemoveTicketTypes) {
+      for (const ticketType of toDelete) {
+        await apiClient.deleteTicketType(eventId, ticketType.id);
+      }
+    }
+  };
+
+  const handleUpdateEvent = editForm.handleSubmit(async (data) => {
     if (!selectedEvent) return;
 
     try {
       setIsSubmitting(true);
 
+      const price =
+        data.price === null || Number.isNaN(data.price) ? null : Number(data.price);
+      const capacity = Number.isNaN(data.capacity)
+        ? selectedEvent.capacity
+        : Number(data.capacity);
+
       const updateData = {
-        title: editEvent.title,
-        description: editEvent.description,
-        startDate: editEvent.date,
-        endDate: editEvent.endDate || undefined,
-        location: editEvent.location,
-        capacity: parseInt(editEvent.capacity),
-        price: parseFloat(editEvent.price),
-        category: editEvent.category
+        title: data.title,
+        description: data.description,
+        startDate: data.startDate,
+        endDate: data.endDate || undefined,
+        location: data.location,
+        capacity,
+        price,
+        category: data.category,
       };
 
       await apiClient.updateEvent(selectedEvent.id, updateData);
+      await syncTicketTypes(selectedEvent.id, data.ticketTypes || []);
       toastSuccess('Evento atualizado com sucesso!');
 
       setIsEditDialogOpen(false);
@@ -158,7 +245,7 @@ export function EventsManagement() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
 
   const handleDeleteClick = (event: any) => {
     setSelectedEvent(event);
@@ -180,7 +267,6 @@ export function EventsManagement() {
       await loadEvents();
     } catch (error: any) {
       toastError(error.message || 'Erro ao remover evento');
-      console.error('Error deleting event:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -223,7 +309,8 @@ export function EventsManagement() {
             Crie e gerencie eventos da sua igreja
           </p>
         </div>
-
+        
+        {/* Inclusão de evento */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
@@ -231,120 +318,156 @@ export function EventsManagement() {
               Novo Evento
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Criar Novo Evento</DialogTitle>
               <DialogDescription>
                 Preencha as informações do evento que será realizado
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[400px] overflow-y-auto">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título do Evento</Label>
-                <Input
-                  id="title"
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                  placeholder="Ex: Encontro de Jovens 2024"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                  placeholder="Descreva o evento..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleAddEvent}>
+              <div className="grid gap-4 py-4 max-h-[calc(90vh-200px)] overflow-y-auto">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Data de Início</Label>
+                  <Label htmlFor="title">Título do Evento *</Label>
                   <Input
-                    id="date"
-                    type="date"
-                    value={newEvent.date}
-                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                    id="title"
+                    {...createForm.register('title')}
+                    placeholder="Ex: Encontro de Jovens 2024"
+                  />
+                  {createForm.formState.errors.title && (
+                    <p className="text-sm text-red-500">
+                      {createForm.formState.errors.title.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea
+                    id="description"
+                    {...createForm.register('description')}
+                    placeholder="Descreva o evento..."
+                    rows={3}
+                  />
+                  {createForm.formState.errors.description && (
+                    <p className="text-sm text-red-500">
+                      {createForm.formState.errors.description.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Data de Início *</Label>
+                    <Input
+                      id="startDate"
+                      type="datetime-local"
+                      {...createForm.register('startDate')}
+                    />
+                    {createForm.formState.errors.startDate && (
+                      <p className="text-sm text-red-500">
+                        {createForm.formState.errors.startDate.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">Data de Término</Label>
+                    <Input
+                      id="endDate"
+                      type="datetime-local"
+                      {...createForm.register('endDate')}
+                    />
+                    {createForm.formState.errors.endDate && (
+                      <p className="text-sm text-red-500">
+                        {createForm.formState.errors.endDate.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="location">Local *</Label>
+                  <Input
+                    id="location"
+                    {...createForm.register('location')}
+                    placeholder="Ex: Centro de Convenções"
+                  />
+                  {createForm.formState.errors.location && (
+                    <p className="text-sm text-red-500">
+                      {createForm.formState.errors.location.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="capacity">Capacidade Total *</Label>
+                    <Input
+                      id="capacity"
+                      type="number"
+                      {...createForm.register('capacity', { valueAsNumber: true })}
+                      placeholder="500"
+                    />
+                    {createForm.formState.errors.capacity && (
+                      <p className="text-sm text-red-500">
+                        {createForm.formState.errors.capacity.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Categoria *</Label>
+                    <Select
+                      value={createForm.watch('category')}
+                      onValueChange={(value) => createForm.setValue('category', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Jovens">Jovens</SelectItem>
+                        <SelectItem value="Adultos">Adultos</SelectItem>
+                        <SelectItem value="Liderança">Liderança</SelectItem>
+                        <SelectItem value="Geral">Geral</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {createForm.formState.errors.category && (
+                      <p className="text-sm text-red-500">
+                        {createForm.formState.errors.category.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <TicketTypesFieldArray
+                    control={createForm.control}
+                    errors={createForm.formState.errors}
+                    register={createForm.register}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">Data de Término</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={newEvent.endDate}
-                    onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
-                  />
-                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="location">Local</Label>
-                <Input
-                  id="location"
-                  value={newEvent.location}
-                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                  placeholder="Ex: Centro de Convenções"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="capacity">Capacidade</Label>
-                  <Input
-                    id="capacity"
-                    type="number"
-                    value={newEvent.capacity}
-                    onChange={(e) => setNewEvent({ ...newEvent, capacity: e.target.value })}
-                    placeholder="500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Preço (R$)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={newEvent.price}
-                    onChange={(e) => setNewEvent({ ...newEvent, price: e.target.value })}
-                    placeholder="89.90"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select
-                    value={newEvent.category}
-                    onValueChange={(value) => setNewEvent({ ...newEvent, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Jovens">Jovens</SelectItem>
-                      <SelectItem value="Adultos">Adultos</SelectItem>
-                      <SelectItem value="Liderança">Liderança</SelectItem>
-                      <SelectItem value="Geral">Geral</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddEvent}
-                disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isSubmitting ? 'Salvando...' : 'Criar Evento'}
-              </Button>
-            </DialogFooter>
+              <DialogFooter className="mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsAddDialogOpen(false);
+                    createForm.reset();
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {isSubmitting ? 'Salvando' : 'Criar Evento'}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -482,120 +605,136 @@ export function EventsManagement() {
 
       {/* Edit Event Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Editar Evento</DialogTitle>
             <DialogDescription>
               Atualize as informações do evento
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[400px] overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="edit-title">Título do Evento</Label>
-              <Input
-                id="edit-title"
-                value={editEvent.title}
-                onChange={(e) => setEditEvent({ ...editEvent, title: e.target.value })}
-                placeholder="Ex: Encontro de Jovens 2024"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Descrição</Label>
-              <Textarea
-                id="edit-description"
-                value={editEvent.description}
-                onChange={(e) => setEditEvent({ ...editEvent, description: e.target.value })}
-                placeholder="Descreva o evento..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleUpdateEvent}>
+            <div className="grid gap-4 py-4 max-h-[calc(90vh-200px)] overflow-y-auto">
               <div className="space-y-2">
-                <Label htmlFor="edit-date">Data de Início</Label>
+                <Label htmlFor="edit-title">Título do Evento</Label>
                 <Input
-                  id="edit-date"
-                  type="date"
-                  value={editEvent.date}
-                  onChange={(e) => setEditEvent({ ...editEvent, date: e.target.value })}
+                  id="edit-title"
+                  {...editForm.register('title')}
+                  placeholder="Ex: Encontro de Jovens 2024"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-endDate">Data de Término</Label>
-                <Input
-                  id="edit-endDate"
-                  type="date"
-                  value={editEvent.endDate}
-                  onChange={(e) => setEditEvent({ ...editEvent, endDate: e.target.value })}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-location">Local</Label>
-              <Input
-                id="edit-location"
-                value={editEvent.location}
-                onChange={(e) => setEditEvent({ ...editEvent, location: e.target.value })}
-                placeholder="Ex: Centro de Convenções"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Descrição</Label>
+                <Textarea
+                  id="edit-description"
+                  {...editForm.register('description')}
+                  placeholder="Descreva o evento..."
+                  rows={3}
+                />
+              </div>
 
-            <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-startDate">Data de Início</Label>
+                  <Input
+                    id="edit-startDate"
+                    type="datetime-local"
+                    {...editForm.register('startDate')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-endDate">Data de Término</Label>
+                  <Input
+                    id="edit-endDate"
+                    type="datetime-local"
+                    {...editForm.register('endDate')}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="edit-capacity">Capacidade</Label>
+                <Label htmlFor="edit-location">Local</Label>
                 <Input
-                  id="edit-capacity"
-                  type="number"
-                  value={editEvent.capacity}
-                  onChange={(e) => setEditEvent({ ...editEvent, capacity: e.target.value })}
-                  placeholder="500"
+                  id="edit-location"
+                  {...editForm.register('location')}
+                  placeholder="Ex: Centro de Convenções"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-price">Preço (R$)</Label>
-                <Input
-                  id="edit-price"
-                  type="number"
-                  step="0.01"
-                  value={editEvent.price}
-                  onChange={(e) => setEditEvent({ ...editEvent, price: e.target.value })}
-                  placeholder="89.90"
-                />
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-capacity">Capacidade</Label>
+                  <Input
+                    id="edit-capacity"
+                    type="number"
+                    {...editForm.register('capacity', { valueAsNumber: true })}
+                    placeholder="500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-price">Preço (R$)</Label>
+                  <Input
+                    id="edit-price"
+                    type="number"
+                    step="0.01"
+                    {...editForm.register('price', {
+                      valueAsNumber: true,
+                      setValueAs: (value) =>
+                        value === '' || value === null ? null : Number(value),
+                    })}
+                    placeholder="89.90"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Categoria</Label>
+                  <Select
+                    value={editForm.watch('category')}
+                    onValueChange={(value) => editForm.setValue('category', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Jovens">Jovens</SelectItem>
+                      <SelectItem value="Adultos">Adultos</SelectItem>
+                      <SelectItem value="Liderança">Liderança</SelectItem>
+                      <SelectItem value="Geral">Geral</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">Categoria</Label>
-                <Select
-                  value={editEvent.category}
-                  onValueChange={(value) => setEditEvent({ ...editEvent, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Jovens">Jovens</SelectItem>
-                    <SelectItem value="Adultos">Adultos</SelectItem>
-                    <SelectItem value="Liderança">Liderança</SelectItem>
-                    <SelectItem value="Geral">Geral</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="border-t pt-4">
+                <TicketTypesFieldArray
+                  control={editForm.control}
+                  errors={editForm.formState.errors}
+                  register={editForm.register}
+                  allowRemove={canRemoveTicketTypes}
+                />
+                {!canRemoveTicketTypes && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Remoção de tipos de ingresso só é permitida para eventos abertos e sem inscrições.
+                  </p>
+                )}
               </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleUpdateEvent}
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

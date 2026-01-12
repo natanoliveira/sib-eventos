@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createTicketTypeSchema } from './ticket-type.schema';
 
 /**
  * Schema de validação para Event
@@ -42,7 +43,8 @@ const baseEventSchema = z.object({
       .number()
       .nonnegative('Preço não pode ser negativo')
       .max(100000, 'Preço máximo de R$ 100.000')
-      .default(0),
+      .optional()
+      .nullable(),
     category: z
       .string()
       .min(3, 'Categoria é obrigatória')
@@ -59,20 +61,47 @@ const baseEventSchema = z.object({
   });
 
 // Schema para criação de evento
-export const createEventSchema = baseEventSchema.refine(
-  (data) => {
-    if (data.endDate) {
-      const start = new Date(data.startDate);
-      const end = new Date(data.endDate);
-      return end > start;
+export const createEventSchema = baseEventSchema
+  .extend({
+    ticketTypes: z
+      .array(createTicketTypeSchema)
+      .min(1, 'Pelo menos um tipo de ingresso é obrigatório')
+      .max(10, 'Máximo de 10 tipos de ingresso')
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.endDate) {
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        return end > start;
+      }
+      return true;
+    },
+    {
+      message: 'Data de término deve ser posterior à data de início',
+      path: ['endDate'],
     }
-    return true;
-  },
-  {
-    message: 'Data de término deve ser posterior à data de início',
-    path: ['endDate'],
-  }
-);
+  )
+  .refine(
+    (data) => {
+      // Validar soma das capacidades dos TicketTypes
+      if (data.ticketTypes && data.capacity) {
+        const totalTicketCapacity = data.ticketTypes
+          .filter((tt) => tt.capacity)
+          .reduce((sum, tt) => sum + (tt.capacity || 0), 0);
+
+        if (totalTicketCapacity > 0 && totalTicketCapacity > data.capacity) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: 'Soma das capacidades dos tipos de ingresso excede capacidade do evento',
+      path: ['ticketTypes'],
+    }
+  );
 
 // Schema para atualização de evento
 export const updateEventSchema = baseEventSchema.partial().refine(

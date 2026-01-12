@@ -6,20 +6,30 @@ import { requireAuth } from '@/lib/auth-utils';
 async function registerEventHandler(request: NextRequest, context: any) {
   try {
     const body = await request.json();
-    const { personId, eventId } = body;
+    const { personId, eventId, ticketTypeId } = body;
 
-    if (!personId || !eventId) {
+    if (!personId || !eventId || !ticketTypeId) {
       return NextResponse.json(
-        { error: 'personId e eventId são obrigatórios' },
+        { error: 'personId, eventId e ticketTypeId são obrigatórios' },
         { status: 400 }
       );
     }
 
-    // Verificar se pessoa e evento existem
-    const [person, event] = await Promise.all([
-      prisma.person.findUnique({ where: { id: personId } }),
-      prisma.event.findUnique({ where: { id: eventId } }),
-    ]);
+    // Verificar se ticketType existe e pertence ao evento
+    const ticketType = await prisma.ticketType.findFirst({
+      where: { id: ticketTypeId, eventId },
+      include: { event: true },
+    });
+
+    if (!ticketType) {
+      return NextResponse.json(
+        { error: 'Tipo de ingresso não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    // Verificar se pessoa existe
+    const person = await prisma.person.findUnique({ where: { id: personId } });
 
     if (!person) {
       return NextResponse.json(
@@ -28,15 +38,8 @@ async function registerEventHandler(request: NextRequest, context: any) {
       );
     }
 
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Evento não encontrado' },
-        { status: 404 }
-      );
-    }
-
     // Verificar se evento está aberto
-    if (event.status !== 'ACTIVE') {
+    if (ticketType.event.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'Evento não está aberto para inscrições' },
         { status: 400 }
@@ -59,11 +62,47 @@ async function registerEventHandler(request: NextRequest, context: any) {
       );
     }
 
+    // Verificar capacidade do tipo de ingresso
+    if (ticketType.capacity) {
+      const currentTicketTypeRegistrations = await prisma.eventMembership.count({
+        where: {
+          ticketTypeId,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+        },
+      });
+
+      if (currentTicketTypeRegistrations >= ticketType.capacity) {
+        return NextResponse.json(
+          { error: 'Este tipo de ingresso está esgotado' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Verificar capacidade total do evento
+    const totalRegistrations = await prisma.eventMembership.count({
+      where: {
+        eventId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+      },
+    });
+
+    if (
+      ticketType.event.capacity &&
+      totalRegistrations >= ticketType.event.capacity
+    ) {
+      return NextResponse.json(
+        { error: 'Evento está com lotação completa' },
+        { status: 400 }
+      );
+    }
+
     // Criar inscrição
     const registration = await prisma.eventMembership.create({
       data: {
         personId,
         eventId,
+        ticketTypeId,
         status: 'PENDING', // Pendente até pagamento
         createdByUserId: context.user.id,
       },
@@ -85,6 +124,14 @@ async function registerEventHandler(request: NextRequest, context: any) {
             location: true,
             price: true,
             status: true,
+          },
+        },
+        ticketType: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
           },
         },
       },

@@ -101,7 +101,7 @@ model Event {
   endDate     DateTime?
   location    String
   capacity    Int
-  price       Decimal     @db.Decimal(10, 2)
+  price       Decimal?    @db.Decimal(10, 2)
   category    String
   status      EventStatus @default(ACTIVE)
   imageUrl    String?
@@ -113,9 +113,27 @@ model Event {
   memberships EventMembership[]
   tickets     Ticket[]
   invoices    Invoice[]
+  ticketTypes TicketType[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TicketType {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  capacity    Int?
+  eventId     String
+
+  event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventMemberships EventMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
 }
 
 model EventMembership {
@@ -124,17 +142,20 @@ model EventMembership {
   eventId         String
   userId          String?            // Referência lógica ao User (sem FK)
   createdByUserId String?
+  ticketTypeId    String?
   status          RegistrationStatus @default(PENDING)
   registeredAt    DateTime           @default(now())
 
-  person        Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  createdByUser User?  @relation("MembershipCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  person        Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdByUser User?       @relation("MembershipCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  ticketType    TicketType? @relation(fields: [ticketTypeId], references: [id], onDelete: SetNull)
 
   @@index([personId])
   @@index([eventId])
   @@index([createdByUserId])
   @@index([userId])
+  @@index([ticketTypeId])
 }
 
 model Ticket {

@@ -216,6 +216,31 @@ class ApiClient {
     })
   }
 
+  // TicketTypes endpoints
+  async getEventTicketTypes(eventId: string) {
+    return this.request<any[]>(`/events/${eventId}/ticket-types`)
+  }
+
+  async createTicketType(eventId: string, data: any) {
+    return this.request<any>(`/events/${eventId}/ticket-types`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateTicketType(eventId: string, ticketTypeId: string, data: any) {
+    return this.request<any>(`/events/${eventId}/ticket-types/${ticketTypeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteTicketType(eventId: string, ticketTypeId: string) {
+    return this.request<{ message: string }>(`/events/${eventId}/ticket-types/${ticketTypeId}`, {
+      method: 'DELETE',
+    })
+  }
+
   // Tickets endpoints
   async getTickets(params?: { search?: string; eventId?: string; status?: string; page?: number; limit?: number }) {
     const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
@@ -370,10 +395,10 @@ class ApiClient {
     return this.request<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/event-registrations${query}`)
   }
 
-  async registerMemberToEvent(persoId: string, userId: string, eventId: string) {
+  async registerMemberToEvent(personId: string, userId: string, eventId: string, ticketTypeId?: string) {
     return this.request<any>('/event-registrations', {
       method: 'POST',
-      body: JSON.stringify({ persoId, userId, eventId }),
+      body: JSON.stringify({ personId, userId, eventId, ticketTypeId }),
     })
   }
 

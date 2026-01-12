@@ -29,6 +29,13 @@ async function getEventHandler(
             email: true,
           },
         },
+        ticketTypes: {
+          include: {
+            _count: {
+              select: { eventMemberships: true },
+            },
+          },
+        },
         memberships: {
           include: {
             person: {

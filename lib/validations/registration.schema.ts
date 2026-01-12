@@ -15,6 +15,10 @@ export const createRegistrationSchema = z.object({
     .string()
     .uuid('ID do evento inválido')
     .min(1, 'Evento é obrigatório'),
+  ticketTypeId: z
+    .string()
+    .uuid('ID do tipo de ingresso inválido')
+    .min(1, 'Tipo de ingresso é obrigatório'),
   createdByUserId: z
     .string()
     .uuid('ID do usuário inválido')

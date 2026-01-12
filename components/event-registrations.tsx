@@ -63,6 +63,7 @@ export function EventRegistrations() {
     personId: '',
     userId: '',
     eventId: '',
+    ticketTypeId: '',
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +74,7 @@ export function EventRegistrations() {
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [ticketTypes, setTicketTypes] = useState<any[]>([]);
 
 
   useEffect(() => {
@@ -118,6 +120,32 @@ export function EventRegistrations() {
     const debounce = setTimeout(searchMembers, 200);
     return () => clearTimeout(debounce);
   }, [searchQuery]);
+
+  // Buscar ticket types quando evento é selecionado
+  useEffect(() => {
+    const fetchTicketTypes = async () => {
+      if (!newRegistration.eventId) {
+        setTicketTypes([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/events/${newRegistration.eventId}/ticket-types`);
+        if (response.ok) {
+          const data = await response.json();
+          setTicketTypes(data);
+          // Auto-selecionar se houver apenas um tipo
+          if (data.length === 1) {
+            setNewRegistration(prev => ({ ...prev, ticketTypeId: data[0].id }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching ticket types:', error);
+      }
+    };
+
+    fetchTicketTypes();
+  }, [newRegistration.eventId]);
 
   // Fechar resultados ao clicar fora
   useEffect(() => {
@@ -174,7 +202,10 @@ export function EventRegistrations() {
   };
 
   const handleAddRegistration = async () => {
-    if (!selectedMember || !newRegistration.eventId) return;
+    if (!selectedMember || !newRegistration.eventId || !newRegistration.ticketTypeId) {
+      toastWarning('Preencha todos os campos obrigatórios');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -182,7 +213,7 @@ export function EventRegistrations() {
       // O user.id (usuário logado) pode ser passado como createdByUserId se a API suportar
       await apiClient.registerMemberToEvent(selectedMember.id, user?.id ?? '', newRegistration.eventId);
       toastSuccess('Inscrição realizada com sucesso!');
-      setNewRegistration({ personId: '', userId: '', eventId: '' });
+      setNewRegistration({ personId: '', userId: '', eventId: '', ticketTypeId: '' });
       setSelectedMember(null);
       setSearchQuery('');
       setIsAddDialogOpen(false);
@@ -366,7 +397,7 @@ export function EventRegistrations() {
                 <Label htmlFor="event">Evento</Label>
                 <Select
                   value={newRegistration.eventId}
-                  onValueChange={(value) => setNewRegistration({ ...newRegistration, eventId: value })}
+                  onValueChange={(value) => setNewRegistration({ ...newRegistration, eventId: value, ticketTypeId: '' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o evento" />
@@ -380,6 +411,33 @@ export function EventRegistrations() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {ticketTypes.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="ticketType">Tipo de Ingresso *</Label>
+                  <Select
+                    value={newRegistration.ticketTypeId}
+                    onValueChange={(value) => setNewRegistration({ ...newRegistration, ticketTypeId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de ingresso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ticketTypes.map(ticketType => (
+                        <SelectItem key={ticketType.id} value={ticketType.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{ticketType.name}</span>
+                            <span className="text-sm text-gray-500">
+                              R$ {Number(ticketType.price).toFixed(2)}
+                              {ticketType.capacity && ` • ${ticketType._count?.eventMemberships || 0}/${ticketType.capacity} vagas`}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -394,7 +452,7 @@ export function EventRegistrations() {
                 <Button
                   onClick={handleAddRegistration}
                   className="bg-blue-600 hover:bg-blue-700"
-                  disabled={!selectedMember || !newRegistration.eventId}
+                  disabled={!selectedMember || !newRegistration.eventId || !newRegistration.ticketTypeId}
                 >
                   Inscrever Membro
                 </Button>
