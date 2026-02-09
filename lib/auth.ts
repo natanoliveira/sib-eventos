@@ -22,13 +22,17 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
   return 'dev-secret-key-change-in-production';
 })();
 
+export const AUTH_TOKEN_TTL_SECONDS = 60 * 60;
+
 export const generateToken = (userId: string): string => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' })
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: AUTH_TOKEN_TTL_SECONDS })
 }
 
 export const verifyToken = (token: string): { userId: string } | null => {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string }
+    const payload = jwt.verify(token, JWT_SECRET, {
+      maxAge: AUTH_TOKEN_TTL_SECONDS,
+    }) as { userId: string }
     return payload
   } catch {
     return null

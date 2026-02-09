@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
+import { DEFAULT_PERMISSIONS_BY_ROLE } from '@/lib/permissions';
 
 const PROFILE_SELECT = {
   id: true,
@@ -16,6 +17,11 @@ const PROFILE_SELECT = {
   joinDate: true,
   createdAt: true,
   updatedAt: true,
+  userPermissions: {
+    include: {
+      permission: true,
+    },
+  },
 };
 
 // GET /api/auth/profile - Perfil do usuario autenticado
@@ -34,7 +40,43 @@ export const GET = requireAuth(
         );
       }
 
-      return NextResponse.json(user);
+      let permissions = user.userPermissions?.map((up) => up.permission.code) || [];
+
+      if (permissions.length === 0) {
+        const defaultPermissions =
+          DEFAULT_PERMISSIONS_BY_ROLE[user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || [];
+
+        if (defaultPermissions.length > 0) {
+          const permissionRecords = await prisma.permission.findMany({
+            where: { code: { in: defaultPermissions } },
+          });
+
+          if (permissionRecords.length > 0) {
+            await prisma.userPermission.createMany({
+              data: permissionRecords.map((perm) => ({
+                userId: user.id,
+                permissionId: perm.id,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        const refreshed = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: PROFILE_SELECT,
+        });
+
+        permissions = refreshed?.userPermissions?.map((up) => up.permission.code) || [];
+
+        if (refreshed) {
+          const { userPermissions, ...rest } = refreshed;
+          return NextResponse.json({ ...rest, permissions });
+        }
+      }
+
+      const { userPermissions, ...rest } = user;
+      return NextResponse.json({ ...rest, permissions });
     } catch (error) {
       console.error('Error fetching profile:', error);
       return NextResponse.json(
@@ -134,7 +176,9 @@ export const PUT = requireAuth(
         select: PROFILE_SELECT,
       });
 
-      return NextResponse.json(user);
+      const permissions = user.userPermissions?.map((up) => up.permission.code) || [];
+      const { userPermissions, ...rest } = user;
+      return NextResponse.json({ ...rest, permissions });
     } catch (error) {
       console.error('Error updating profile:', error);
       return NextResponse.json(

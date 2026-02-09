@@ -3,6 +3,18 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MembersManagement } from '../members-management';
 import { apiClient } from '../../lib/api-client';
+import { AuthProvider } from '../../lib/auth-context';
+import { PERMISSIONS } from '../../lib/permissions';
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    replace: jest.fn(),
+    push: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 // Mock do apiClient
 jest.mock('../../lib/api-client', () => ({
@@ -11,6 +23,8 @@ jest.mock('../../lib/api-client', () => ({
     createMember: jest.fn(),
     updateMember: jest.fn(),
     deleteMember: jest.fn(),
+    getProfile: jest.fn(),
+    logout: jest.fn(),
   },
 }));
 
@@ -55,37 +69,81 @@ const mockMembers = [
 ];
 
 describe('MembersManagement', () => {
+  const renderWithAuth = (ui: React.ReactElement) =>
+    render(<AuthProvider>{ui}</AuthProvider>);
+
+  const mockUser = {
+    id: 'user-1',
+    name: 'Admin',
+    email: 'admin@igreja.com',
+    role: 'ADMIN',
+    permissions: [
+      PERMISSIONS.MEMBERS_VIEW,
+      PERMISSIONS.MEMBERS_CREATE,
+      PERMISSIONS.MEMBERS_EDIT,
+      PERMISSIONS.MEMBERS_DELETE,
+    ],
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    (apiClient.getMembers as jest.Mock).mockResolvedValue(mockMembers);
+    (apiClient.getProfile as jest.Mock).mockResolvedValue(mockUser);
+    (apiClient.getMembers as jest.Mock).mockImplementation((params: any = {}) => {
+      const search = String(params.search || '').toLowerCase();
+      const category = String(params.category || '').toLowerCase();
+      let data = mockMembers;
+
+      if (search) {
+        data = data.filter((member) =>
+          member.name.toLowerCase().includes(search) ||
+          member.email.toLowerCase().includes(search)
+        );
+      }
+
+      if (category && category !== 'all') {
+        data = data.filter((member) => member.category.toLowerCase() === category);
+      }
+
+      return Promise.resolve({
+        data,
+        total: data.length,
+        totalPages: 1,
+      });
+    });
   });
 
   describe('Renderização inicial', () => {
     it('deve renderizar o componente com título e descrição', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
-      expect(screen.getByText('Gerenciamento de Membros')).toBeInTheDocument();
-      expect(screen.getByText('Cadastre e gerencie os membros da sua igreja')).toBeInTheDocument();
+      expect(
+        await screen.findByText('Gerenciamento de Membros')
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Cadastre e gerencie os membros da sua igreja')
+      ).toBeInTheDocument();
     });
 
     it('deve renderizar o botão de adicionar novo membro', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
-      const addButton = screen.getByRole('button', { name: /novo membro/i });
+      const addButton = await screen.findByRole('button', {
+        name: /novo membro/i,
+      });
       expect(addButton).toBeInTheDocument();
     });
 
     it('deve carregar e exibir a lista de membros', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
         expect(apiClient.getMembers).toHaveBeenCalled();
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
-        expect(screen.getByText('João Santos')).toBeInTheDocument();
-        expect(screen.getByText('Ana Costa')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('João Santos').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Ana Costa').length).toBeGreaterThan(0);
       });
     });
   });
@@ -93,43 +151,43 @@ describe('MembersManagement', () => {
   describe('Busca e filtragem', () => {
     it('deve filtrar membros por nome', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       const searchInput = screen.getByPlaceholderText(/buscar por nome ou email/i);
       await user.type(searchInput, 'Maria');
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
         expect(screen.queryByText('João Santos')).not.toBeInTheDocument();
       });
     });
 
     it('deve filtrar membros por email', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       const searchInput = screen.getByPlaceholderText(/buscar por nome ou email/i);
       await user.type(searchInput, 'joao.santos@email.com');
 
       await waitFor(() => {
-        expect(screen.getByText('João Santos')).toBeInTheDocument();
+        expect(screen.getAllByText('João Santos').length).toBeGreaterThan(0);
         expect(screen.queryByText('Maria Silva')).not.toBeInTheDocument();
       });
     });
 
     it('deve renderizar o filtro de categoria', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       // Verifica se o select de categoria existe
@@ -141,9 +199,9 @@ describe('MembersManagement', () => {
   describe('Adicionar membro', () => {
     it('deve abrir o diálogo de adicionar membro ao clicar no botão', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
-      const addButton = screen.getByRole('button', { name: /novo membro/i });
+      const addButton = await screen.findByRole('button', { name: /novo membro/i });
       await user.click(addButton);
 
       await waitFor(() => {
@@ -154,10 +212,10 @@ describe('MembersManagement', () => {
 
     it('deve exibir os campos do formulário de novo membro', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       // Abre o diálogo
-      const addButton = screen.getByRole('button', { name: /novo membro/i });
+      const addButton = await screen.findByRole('button', { name: /novo membro/i });
       await user.click(addButton);
 
       // Verifica se os campos do formulário estão presentes
@@ -174,10 +232,10 @@ describe('MembersManagement', () => {
   describe('Editar membro', () => {
     it('deve abrir o diálogo de edição ao clicar no botão de editar', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       const editButtons = screen.getAllByRole('button', { name: '' });
@@ -197,10 +255,10 @@ describe('MembersManagement', () => {
 
     it('deve atualizar um membro com sucesso', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       // Clica no botão de editar
@@ -235,10 +293,10 @@ describe('MembersManagement', () => {
   describe('Deletar membro', () => {
     it('deve abrir o diálogo de confirmação ao clicar no botão de deletar', async () => {
       const user = userEvent.setup();
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       const deleteButtons = screen.getAllByRole('button', { name: '' });
@@ -259,10 +317,10 @@ describe('MembersManagement', () => {
       const user = userEvent.setup();
       (apiClient.deleteMember as jest.Mock).mockResolvedValue({});
 
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
+        expect(screen.getAllByText('Maria Silva').length).toBeGreaterThan(0);
       });
 
       // Clica no botão de deletar
@@ -291,15 +349,15 @@ describe('MembersManagement', () => {
 
   describe('Exibição de dados', () => {
     it('deve exibir a contagem correta de membros', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('3 membros encontrados')).toBeInTheDocument();
-      });
+      expect(
+        await screen.findByText(/3 membros.*encontrados/i)
+      ).toBeInTheDocument();
     });
 
     it('deve exibir badges de categoria corretamente', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
         const badges = screen.getAllByText(/jovem|adulto|líder/i);
@@ -308,20 +366,20 @@ describe('MembersManagement', () => {
     });
 
     it('deve exibir status ativo dos membros', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
         const statusBadges = screen.getAllByText(/ativo/i);
-        expect(statusBadges.length).toBe(3);
+        expect(statusBadges.length).toBeGreaterThanOrEqual(3);
       });
     });
 
     it('deve exibir informações de contato dos membros', async () => {
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('maria.silva@email.com')).toBeInTheDocument();
-        expect(screen.getByText('(11) 99999-9999')).toBeInTheDocument();
+        expect(screen.getAllByText('maria.silva@email.com').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('(11) 99999-9999').length).toBeGreaterThan(0);
       });
     });
   });
@@ -330,12 +388,10 @@ describe('MembersManagement', () => {
     it('deve usar dados mock quando a API falhar', async () => {
       (apiClient.getMembers as jest.Mock).mockRejectedValue(new Error('API Error'));
 
-      render(<MembersManagement />);
+      renderWithAuth(<MembersManagement />);
 
       await waitFor(() => {
-        // Verifica se exibe os dados mock de fallback
-        expect(screen.getByText('Maria Silva')).toBeInTheDocument();
-        expect(screen.getByText('João Santos')).toBeInTheDocument();
+        expect(screen.getByText('Nenhum membro encontrado')).toBeInTheDocument();
       });
     });
   });

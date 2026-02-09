@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { generateToken } from '@/lib/auth';
+import { AUTH_TOKEN_TTL_SECONDS, generateToken } from '@/lib/auth';
+import { DEFAULT_PERMISSIONS_BY_ROLE } from '@/lib/permissions';
 import { errorResponse } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
 import { withRateLimit, loginLimiter } from '@/lib/rate-limit';
@@ -47,11 +48,39 @@ async function loginHandler(request: NextRequest) {
       );
     }
 
-    // Criar mapa de permissions para facilitar verificação no frontend
-    const permissions: Record<string, boolean> = {};
-    user.userPermissions.forEach((up) => {
-      permissions[up.permission.code] = true;
-    });
+    let permissions = user.userPermissions.map((up) => up.permission.code);
+
+    if (permissions.length === 0) {
+      const defaultPermissions =
+        DEFAULT_PERMISSIONS_BY_ROLE[user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || [];
+
+      if (defaultPermissions.length > 0) {
+        const permissionRecords = await prisma.permission.findMany({
+          where: { code: { in: defaultPermissions } },
+        });
+
+        if (permissionRecords.length > 0) {
+          await prisma.userPermission.createMany({
+            data: permissionRecords.map((perm) => ({
+              userId: user.id,
+              permissionId: perm.id,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      const refreshed = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+          userPermissions: {
+            include: { permission: true },
+          },
+        },
+      });
+
+      permissions = refreshed?.userPermissions.map((up) => up.permission.code) || [];
+    }
 
     const token = generateToken(user.id);
 
@@ -70,10 +99,10 @@ async function loginHandler(request: NextRequest) {
     });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: AUTH_TOKEN_TTL_SECONDS,
     });
 
     return response;

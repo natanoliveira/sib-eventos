@@ -93,12 +93,9 @@ export function UserProfile({ onClose }: UserProfileProps) {
       const formData = new FormData();
       formData.append('image', selectedImage);
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
       const response = await fetch('/api/auth/profile', {
         method: 'PUT',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        credentials: 'include',
         body: formData,
       });
 

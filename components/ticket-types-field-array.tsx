@@ -8,6 +8,7 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Plus, Trash2, Lock, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import { formatCurrencyBr, parseCurrencyBrInput } from '@/lib/utils';
 
 interface TicketTypesFieldArrayProps {
   control: Control<any>;
@@ -137,9 +138,18 @@ export function TicketTypesFieldArray({
                 <Label htmlFor={`ticketTypes.${index}.price`}>Preço (R$) *</Label>
                 <Input
                   {...register(`ticketTypes.${index}.price`, {
-                    valueAsNumber: true,
+                    setValueAs: (value) => parseCurrencyBrInput(String(value)),
+                    onChange: (event) => {
+                      const rawValue = event.target.value;
+                      if (rawValue === '') return;
+
+                      const parsedValue = parseCurrencyBrInput(rawValue);
+                      if (Number.isNaN(parsedValue)) return;
+
+                      event.target.value = formatCurrencyBr(parsedValue);
+                    },
                   })}
-                  type="number"
+                  type="text"
                   step="0.01"
                   placeholder="0.00"
                   disabled={!allowEdit || !canModify}

@@ -537,3 +537,31 @@ export function formatCurrencyBr(value: number | string | null | undefined): str
     maximumFractionDigits: 2,
   }).format(number);
 }
+
+export function parseCurrencyBrInput (value: string): string | number {
+  if (!value) return NaN;
+
+  const sanitized = value.replace(/[^\d.,-]/g, '');
+  if (!sanitized) return NaN;
+
+  const lastSeparator = Math.max(
+    sanitized.lastIndexOf(','),
+    sanitized.lastIndexOf('.')
+  );
+
+  let numberString = '';
+  if (lastSeparator !== -1) {
+    const integerPart = sanitized
+      .slice(0, lastSeparator)
+      .replace(/[^\d-]/g, '');
+    const decimalPart = sanitized
+      .slice(lastSeparator + 1)
+      .replace(/[^\d]/g, '');
+    numberString = `${integerPart || '0'}.${decimalPart}`;
+  } else {
+    numberString = sanitized.replace(/[^\d-]/g, '');
+  }
+
+  const numberValue = Number(numberString);
+  return Number.isNaN(numberValue) ? NaN : numberValue;
+};

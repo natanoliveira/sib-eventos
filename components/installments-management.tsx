@@ -592,14 +592,17 @@ export function InstallmentsManagement() {
                   <Label htmlFor="amount">Valor (R$) *</Label>
                   <Input
                     id="amount"
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    // step="0.01"
                     value={paymentData.amount}
-                    onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                    onChange={(e) => {
+                          const formatted = formatCurrencyBr(e.target.value);
+                          setPaymentData({ ...paymentData, amount: formatted });
+                        }}
                     placeholder="0.00"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Valor original da parcela: R$ {formatCurrencyBr(parseFloat(selectedInstallment.amount))}
+                  <p className="text-xs text-blue-900">
+                    Valor original da parcela: R$ {formatCurrencyBr(selectedInstallment.amount)}
                   </p>
                 </div>
 

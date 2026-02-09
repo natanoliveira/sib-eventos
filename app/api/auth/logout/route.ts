@@ -1,0 +1,13 @@
+import { NextResponse } from 'next/server';
+
+export async function POST() {
+  const response = NextResponse.json({ message: 'Logout realizado' });
+  response.cookies.set('auth_token', '', {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 0,
+  });
+  return response;
+}

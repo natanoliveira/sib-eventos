@@ -59,7 +59,9 @@ export default function InscricoesPage() {
 
     const fetchEvents = async () => {
       try {
-        const response = await fetch('/api/events?status=ACTIVE');
+        const response = await fetch('/api/events?status=ACTIVE', {
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setEvents(data.data || data);
@@ -81,7 +83,9 @@ export default function InscricoesPage() {
     const fetchTicketTypes = async () => {
       for (const event of events) {
         try {
-          const response = await fetch(`/api/events/${event.id}/ticket-types`);
+          const response = await fetch(`/api/events/${event.id}/ticket-types`, {
+            credentials: 'include',
+          });
           if (response.ok) {
             const ticketTypes = await response.json();
             setEventTicketTypes(prev => ({ ...prev, [event.id]: ticketTypes }));
@@ -111,7 +115,9 @@ export default function InscricoesPage() {
 
       setLoading(true);
       try {
-        const response = await fetch(`/api/members/search?q=${encodeURIComponent(searchQuery)}`);
+        const response = await fetch(`/api/members/search?q=${encodeURIComponent(searchQuery)}`, {
+          credentials: 'include',
+        });
         if (response.ok) {
           const data = await response.json();
           setSearchResults(data);
@@ -179,6 +185,7 @@ export default function InscricoesPage() {
       const response = await fetch('/api/events/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           personId: selectedMember.id,
           eventId: event.id,

@@ -4,23 +4,22 @@ class ApiClient {
 
   constructor(baseUrl: string = '/api') {
     this.baseUrl = baseUrl
-    // Get token from localStorage if available
-    if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token')
-    }
   }
 
   setToken(token: string) {
     this.token = token
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token)
-    }
   }
 
   clearToken() {
     this.token = null
+  }
+
+  private handleUnauthorized() {
+    this.clearToken();
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token')
+      window.dispatchEvent(
+        new CustomEvent('auth:logout', { detail: { reason: 'expired' } })
+      );
     }
   }
 
@@ -28,11 +27,6 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Reload token from localStorage if available
-    if (typeof window !== 'undefined' && !this.token) {
-      this.token = localStorage.getItem('auth_token')
-    }
-
     const url = `${this.baseUrl}${endpoint}`
 
     const headers: Record<string, string> = {
@@ -47,9 +41,18 @@ class ApiClient {
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
     })
 
     const contentType = response.headers.get('content-type') || ''
+
+    if (
+      response.status === 401 &&
+      !endpoint.startsWith('/auth/login') &&
+      !endpoint.startsWith('/auth/register')
+    ) {
+      this.handleUnauthorized();
+    }
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`
@@ -87,6 +90,7 @@ class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      credentials: 'include',
     })
 
     const data = await response.json().catch(() => ({}))
@@ -98,6 +102,14 @@ class ApiClient {
       this.setToken(data.token)
     }
     return data
+  }
+
+  async logout() {
+    await fetch(`${this.baseUrl}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    this.clearToken();
   }
 
   async register(data: { name: string; email: string; password: string }) {

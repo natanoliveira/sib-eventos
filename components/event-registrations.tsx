@@ -20,6 +20,7 @@ import { DataTableHeader } from "./data-display/data-table-header";
 import { usePermissions } from '../lib/use-permissions';
 import { PERMISSIONS } from '../lib/permissions';
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { formatCurrencyBr } from '@/lib/utils';
 
 interface Member {
   id: string;
@@ -51,9 +52,9 @@ interface TicketType {
   description: string;
   price: number;
   capacity?: number;
-  // _count?: {
-  //   eventMemberships: number;
-  // };
+  _count?: {
+    eventMemberships: number;
+  };
 }
 
 export function EventRegistrations() {
@@ -151,7 +152,9 @@ export function EventRegistrations() {
     }
     setLoadingSearch(true);
     try {
-      const response = await fetch(`/api/members/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`/api/members/search?q=${encodeURIComponent(searchQuery)}`, {
+        credentials: 'include',
+      });
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data);
@@ -429,7 +432,7 @@ export function EventRegistrations() {
                           {/* <div className="flex flex-col"> */}
                             <span className="font-medium">{ticketType.name}</span>
                             <span className="text-sm text-gray-500 ml-2">
-                              R$ {Number(ticketType.price).toFixed(2)}
+                              R$ {formatCurrencyBr(ticketType.price)}
                               {ticketType.capacity && ` • ${ticketType._count?.eventMemberships || 0}/${ticketType.capacity} vagas`}
                             </span>
                           {/* </div> */}

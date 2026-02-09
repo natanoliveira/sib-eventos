@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DEFAULT_PERMISSIONS_BY_ROLE } from './permissions';
+import { useRouter, usePathname } from 'next/navigation';
+import { apiClient } from './api-client';
+import { toastWarning } from './toast';
 
 interface User {
   id: string;
@@ -15,7 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -28,63 +30,49 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
-      const token = localStorage.getItem('auth_token');
-      const userData = localStorage.getItem('user_data');
-      
-      if (token && userData) {
-        try {
-          const user = JSON.parse(userData);
-          setUser(user);
-        } catch (error) {
-          console.error('Error parsing user data:', error);
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user_data');
-        }
+      try {
+        const profile = await apiClient.getProfile();
+        setUser(profile);
+      } catch {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkSession();
   }, []);
 
+  useEffect(() => {
+    const handleLogout = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { reason?: string } | undefined;
+      setUser(null);
+      if (detail?.reason === 'expired') {
+        toastWarning('Sua sessão expirou. Faça login novamente.');
+      }
+      if (pathname !== '/login') {
+        const target = detail?.reason === 'expired' ? '/login?reason=expired' : '/login';
+        router.replace(target);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:logout', handleLogout);
+      return () => window.removeEventListener('auth:logout', handleLogout);
+    }
+  }, [router, pathname]);
+
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      
-      // Mock API call with realistic delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock credentials for demo (in production, this would be a real API call)
-      const validCredentials = [
-        { email: 'admin@igreja.com', password: '123456', user: { id: '1', name: 'Pastor João Silva', email: 'admin@igreja.com', role: 'ADMIN' } },
-        { email: 'carlos@igreja.com', password: '123456', user: { id: '2', name: 'Carlos Oliveira', email: 'carlos@igreja.com', role: 'LEADER' } },
-        { email: 'membro@igreja.com', password: '123456', user: { id: '3', name: 'Maria Silva', email: 'membro@igreja.com', role: 'MEMBER' } }
-      ];
-
-      const credential = validCredentials.find(cred =>
-        cred.email === email && cred.password === password
-      );
-
-      if (!credential) {
-        throw new Error('Email ou senha incorretos');
-      }
-
-      // Atribuir permissões baseadas no role
-      const userWithPermissions = {
-        ...credential.user,
-        permissions: DEFAULT_PERMISSIONS_BY_ROLE[credential.user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || []
-      };
-
-      const mockToken = 'mock_token_' + Date.now();
-
-      localStorage.setItem('auth_token', mockToken);
-      localStorage.setItem('user_data', JSON.stringify(userWithPermissions));
-      setUser(userWithPermissions);
-      
+      const data = await apiClient.login(email, password);
+      setUser(data.user);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -95,27 +83,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const loginWithGoogle = async () => {
     try {
-      // Simulate Google OAuth without popups - for demo purposes
       setIsLoading(true);
-      
-      // Mock Google authentication process
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-      
-      const mockGoogleUser = {
-        id: 'google_' + Date.now(),
-        name: 'Usuário Google',
-        email: 'usuario.google@exemplo.com',
-        image: 'https://via.placeholder.com/100x100/d946ef/ffffff?text=UG',
-        role: 'MEMBER',
-        permissions: DEFAULT_PERMISSIONS_BY_ROLE.MEMBER
-      };
-
-      const mockToken = 'mock_google_token_' + Date.now();
-
-      localStorage.setItem('auth_token', mockToken);
-      localStorage.setItem('user_data', JSON.stringify(mockGoogleUser));
-      setUser(mockGoogleUser);
-      
+      throw new Error('Login com Google temporariamente desabilitado');
     } catch (error) {
       console.error('Google login error:', error);
       throw new Error('Falha na autenticação Google');
@@ -124,9 +93,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+  const logout = async () => {
+    await apiClient.logout();
     setUser(null);
   };
 

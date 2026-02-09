@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { hash } from 'bcryptjs';
+import { DEFAULT_PERMISSIONS_BY_ROLE } from '@/lib/permissions';
 
 // GET /api/users - Listar usuários
 export const GET = requireAuth(
@@ -96,24 +97,33 @@ export const POST = requireAuth(
         },
       });
 
-      // Criar permissões se fornecidas
+      let permissionCodes: string[] = [];
+
       if (permissions && typeof permissions === 'object') {
-        const permissionCodes = Object.keys(permissions).filter(code => permissions[code]);
+        permissionCodes = Object.keys(permissions).filter((code) => permissions[code]);
+      }
 
-        if (permissionCodes.length > 0) {
-          // Buscar IDs das permissões
-          const permissionRecords = await prisma.permission.findMany({
-            where: {
-              code: { in: permissionCodes }
-            }
-          });
+      if (permissionCodes.length === 0) {
+        permissionCodes =
+          DEFAULT_PERMISSIONS_BY_ROLE[user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || [];
+      }
 
+      if (permissionCodes.length > 0) {
+        // Buscar IDs das permissões
+        const permissionRecords = await prisma.permission.findMany({
+          where: {
+            code: { in: permissionCodes },
+          },
+        });
+
+        if (permissionRecords.length > 0) {
           // Criar UserPermissions
           await prisma.userPermission.createMany({
-            data: permissionRecords.map(perm => ({
+            data: permissionRecords.map((perm) => ({
               userId: user.id,
-              permissionId: perm.id
-            }))
+              permissionId: perm.id,
+            })),
+            skipDuplicates: true,
           });
         }
       }

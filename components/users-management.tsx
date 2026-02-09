@@ -438,7 +438,7 @@ export function UsersManagement() {
                       </Button>
                       
                       <Tooltip>
-                        <TooltipTrigger>
+                        <TooltipTrigger asChild>
                           <Button
                             variant="outline"
                             size="sm"

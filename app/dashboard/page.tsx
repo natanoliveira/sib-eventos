@@ -15,6 +15,7 @@ import { PaymentsManagement } from '@/components/payments-management';
 import { UserProfile } from '@/components/user-profile';
 import { UsersManagement } from '@/components/users-management';
 import { Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 type TabId =
   | 'dashboard'
@@ -37,26 +38,22 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('user_data');
+    const loadSession = async () => {
+      try {
+        const profile = await apiClient.getProfile();
+        setUser({ name: profile.name || 'Usuário', email: profile.email || '' });
+      } catch {
+        router.replace('/login');
+      } finally {
+        setMounted(true);
+      }
+    };
 
-    if (!token || !storedUser) {
-      router.replace('/login');
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(storedUser);
-      setUser({ name: parsed.name || 'Usuário', email: parsed.email || '' });
-    } catch {
-      router.replace('/login');
-    }
-    setMounted(true);
+    loadSession();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+  const handleLogout = async () => {
+    await apiClient.logout();
     router.push('/login');
   };
 

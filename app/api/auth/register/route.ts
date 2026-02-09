@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { generateToken } from '@/lib/auth';
+import { AUTH_TOKEN_TTL_SECONDS, generateToken } from '@/lib/auth';
+import { DEFAULT_PERMISSIONS_BY_ROLE } from '@/lib/permissions';
 import { validateEmail, validatePasswordStrength } from '@/lib/utils';
 import { errorResponse, validationErrorResponse } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
@@ -68,6 +69,25 @@ async function registerHandler(request: NextRequest) {
       },
     });
 
+    const defaultPermissions =
+      DEFAULT_PERMISSIONS_BY_ROLE[user.role as keyof typeof DEFAULT_PERMISSIONS_BY_ROLE] || [];
+
+    if (defaultPermissions.length > 0) {
+      const permissionRecords = await prisma.permission.findMany({
+        where: { code: { in: defaultPermissions } },
+      });
+
+      if (permissionRecords.length > 0) {
+        await prisma.userPermission.createMany({
+          data: permissionRecords.map((perm) => ({
+            userId: user.id,
+            permissionId: perm.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
     const token = generateToken(user.id);
 
     logger.info('Novo usuário registrado', { userId: user.id, email: user.email });
@@ -88,10 +108,10 @@ async function registerHandler(request: NextRequest) {
     );
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: AUTH_TOKEN_TTL_SECONDS,
     });
 
     return response;
